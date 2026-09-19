@@ -108,6 +108,13 @@ function changeQuestion() {
   verdicts.value[i] = null;
 }
 const keyPointsHit = computed(() => marks.value.filter((m) => m === 'hit').length);
+
+/**
+ * 复述 + 对照关键点这两步做没做。
+ * 从「我直接测一下」进来时起点就是自测，marks 全是 null——
+ * 这时候再报「0 / 3 复述命中关键点」，等于告诉学生他没做到的事做错了。
+ */
+const recallDone = computed(() => marks.value.every((m) => m !== null));
 const quizCorrect = computed(() => verdicts.value.filter((v) => v?.verdict === 'correct').length);
 /**
  * 故意写成普通函数而不是 computed：computed 会把第一次求值的时刻缓存住，
@@ -272,8 +279,22 @@ function formatDuration(ms: number) {
 const closingRemark = computed(() => {
   const hit = keyPointsHit.value;
   const correct = quizCorrect.value;
-  if (correct >= 2 && hit >= 2) return '你今天是真的把它弄懂了，不是「看过」。这种感觉记住它。';
+  const answered = props.card.questions.length - skipped.value;
+
+  // 跳过 ≠ 答错。全跳过时说「答错了」会冤枉学生，而且会污染 §8.1 的自测正确率统计。
+  if (answered === 0) {
+    return '这次先跳过了自测。没关系——回头找个时间回来做一遍，那一步才是真正检验有没有学会。';
+  }
+  if (correct >= 2 && (!recallDone.value || hit >= 2)) {
+    return '你今天是真的把它弄懂了，不是「看过」。这种感觉记住它。';
+  }
   if (correct >= 1) return '大部分抓住了，剩下那一点正是最容易混的地方，下次遇到你会认出来。';
+  if (!recallDone.value) {
+    return '自测还没答对。建议从头走一遍完整六步——尤其是「用自己的话复述」那一步，它才是真正把知识加工进去的环节。';
+  }
+  if (skipped.value > 0) {
+    return `做完的 ${answered} 题还没答对，但至少你试过了。把标准思路再看一遍，然后回来重做这几题。`;
+  }
   return '别急，能走完这六步本身就不容易。过一会儿再回来复述一遍，会顺很多。';
 });
 </script>
@@ -527,12 +548,16 @@ const closingRemark = computed(() => {
 
         <ul class="result__stats">
           <li>
-            <span class="result__num">{{ keyPointsHit }} / 3</span>
-            <span class="result__label">复述命中关键点</span>
+            <span class="result__num">{{ recallDone ? `${keyPointsHit} / 3` : '—' }}</span>
+            <span class="result__label">
+              复述命中关键点<template v-if="!recallDone">（本次跳过）</template>
+            </span>
           </li>
           <li>
             <span class="result__num">{{ quizCorrect }} / {{ card.questions.length }}</span>
-            <span class="result__label">自测答对</span>
+            <span class="result__label">
+              自测答对<template v-if="skipped > 0">（跳过 {{ skipped }} 题）</template>
+            </span>
           </li>
           <li>
             <span class="result__num">{{ completedCount + 1 }}</span>

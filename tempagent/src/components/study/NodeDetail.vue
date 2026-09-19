@@ -14,6 +14,8 @@ const props = defineProps<{
   node: MapNode;
   /** 用来把 relations 里的节点 id 显示成中文名（id 是给程序看的，不该给用户看）。 */
   map: MapPayload | null;
+  /** 用于给未掌握的前置标「需要先学」。 */
+  statuses?: Record<string, NodeStatus>;
   detail: NodePayload | null;
   card: Card333Payload | null;
   status: NodeStatus;
@@ -21,7 +23,11 @@ const props = defineProps<{
   loadingCard: boolean;
 }>();
 
-const emit = defineEmits<{ jump: [key: string]; start333: [] }>();
+const emit = defineEmits<{
+  jump: [key: string];
+  start333: [phase: 'activation' | 'quiz'];
+  ask: [question: string];
+}>();
 
 const STATUS_TEXT: Record<NodeStatus, string> = {
   unlearned: '未学习',
@@ -55,6 +61,24 @@ watch(
 const related = () => props.detail?.related ?? props.node.related;
 
 /** 难度 / 时长优先取 node 模式的返回值（更贴合该节点的实际讲解），退回地图字段。 */
+/** 关系网络的三个分组，顺序按 §6.2：前置 → 相关 → 后继。 */
+const relationRows = computed(() => [
+  {
+    label: '前置知识',
+    ids: props.detail?.prerequisites ?? props.node.prerequisites,
+    markUnmet: true,
+  },
+  { label: '相关概念', ids: related(), markUnmet: false },
+  {
+    label: '后继知识',
+    ids: props.detail?.successor ?? props.node.successor,
+    markUnmet: false,
+  },
+]);
+
+const isMastered = (key: string) =>
+  props.statuses?.[key] === 'mastered' || props.statuses?.[props.map?.nodes.find((n) => n.name === key)?.id ?? ''] === 'mastered';
+
 const shownDifficulty = computed(() => props.detail?.difficulty ?? props.node.difficulty);
 const shownTime = computed(() => props.detail?.estimated_time ?? props.node.estimated_time);
 
@@ -118,12 +142,58 @@ function nameOf(key: string): string {
 
         <p v-if="detail?.definition" class="detail__sub">{{ detail.definition }}</p>
 
-        <div v-if="related().length > 0" class="chips">
-          <span class="chips__label">相关概念</span>
-          <button v-for="key in related()" :key="key" type="button" class="chip" @click="emit('jump', key)">
-            {{ nameOf(key) }}
-          </button>
-        </div>
+        <!-- §6.2 第二层「理解内容」：通俗解释、一个具体例子、一个常见误区。
+             example 这个字段 fixture 里一直有（预测房价那段），此前从未渲染。 -->
+        <section v-if="detail?.example" class="layer">
+          <h3 class="layer__title">举个例子</h3>
+          <p class="layer__body">{{ detail.example }}</p>
+        </section>
+
+        <!-- §6.2 第三层「关系网络」：前置知识、相关概念、后继知识。
+             此前只渲染了「相关概念」，前置与后继都丢了——
+             而「前置知识（未掌握则标『需要先学』）」是规划里点名的功能。 -->
+        <section class="layer">
+          <h3 class="layer__title">关系网络</h3>
+          <div v-for="row in relationRows" :key="row.label" class="rel-row">
+            <span class="rel-row__label">{{ row.label }}</span>
+            <span v-if="row.ids.length === 0" class="rel-row__empty">—</span>
+            <span v-else class="rel-row__chips">
+              <button
+                v-for="key in row.ids"
+                :key="key"
+                type="button"
+                class="chip"
+                :class="{
+                  'chip--warn': row.markUnmet && !isMastered(key),
+                  'chip--ok': isMastered(key),
+                }"
+                @click="emit('jump', key)"
+              >
+                {{ nameOf(key) }}
+                <em v-if="row.markUnmet && !isMastered(key)" class="chip__note">需要先学</em>
+              </button>
+            </span>
+          </div>
+        </section>
+
+        <!-- §6.2 第四层「学习入口」：开始 333 学习法、生成自测题、向 AI 提问 -->
+        <section class="layer">
+          <h3 class="layer__title">学习入口</h3>
+          <div class="entries">
+            <button type="button" class="entry" @click="emit('start333', 'activation')">
+              <AppIcon name="study-board" :size="16" />
+              <span>开始 333 学习法</span>
+            </button>
+            <button type="button" class="entry" @click="emit('start333', 'quiz')">
+              <AppIcon name="check-circle" :size="16" />
+              <span>我直接测一下</span>
+            </button>
+            <button type="button" class="entry" @click="emit('ask', `用更简单的说法讲讲「${node.name}」`)">
+              <AppIcon name="chat-sparkle" :size="16" />
+              <span>向 AI 提问</span>
+            </button>
+          </div>
+        </section>
       </template>
 
       <template v-else-if="tab === 'exam'">
@@ -342,6 +412,105 @@ function nameOf(key: string): string {
   font-size: 12.5px;
   line-height: 1.7;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.layer {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.layer__title {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-900);
+}
+
+.layer__body {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.85;
+  color: var(--ink-700);
+}
+
+.rel-row {
+  display: flex;
+  gap: 10px;
+  padding: 5px 0;
+  align-items: flex-start;
+}
+
+.rel-row__label {
+  flex: none;
+  width: 62px;
+  padding-top: 3px;
+  color: var(--ink-400);
+  font-size: 12.5px;
+}
+
+.rel-row__empty {
+  color: var(--ink-300);
+  font-size: 12.5px;
+  padding-top: 3px;
+}
+
+.rel-row__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.chip__note {
+  margin-left: 5px;
+  padding: 0 4px;
+  border-radius: 4px;
+  background: #fff7ed;
+  color: var(--warn-600);
+  font-size: 10.5px;
+  font-style: normal;
+}
+
+/* 未掌握的前置：要显眼，因为它是「你得先学这个」 */
+.chip--warn {
+  background: #fffaf0;
+  border-color: #fde9c8;
+  color: var(--warn-600);
+}
+
+/* 已掌握的：给一个克制但能一眼看出的正反馈 */
+.chip--ok {
+  background: #f3fbf6;
+  border-color: #bbf7d0;
+  color: var(--success-600);
+}
+
+.entries {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--brand-700);
+  font-size: 13px;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.entry:hover {
+  background: var(--brand-50);
+  border-color: var(--brand-400);
+  transform: translateY(-1px);
 }
 
 .chips {

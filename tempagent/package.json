@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "start": "node server/index.mjs",
-    "check": "npm run typecheck && npm run check:contract && npm run check:333 && npm run check:fallback",
+    "check": "npm run typecheck && npm run build && npm run check:contract && npm run check:333 && npm run check:fallback",
     "check:contract": "node scripts/check-contract.mjs",
     "check:333": "node scripts/check-333.mjs",
     "lint": "run-s \"lint:*\"",

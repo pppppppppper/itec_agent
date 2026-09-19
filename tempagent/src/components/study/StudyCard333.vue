@@ -26,6 +26,8 @@ const props = defineProps<{
   card: Card333Payload;
   /** 已完成的知识点数（本地统计，用于进步可视化）。 */
   completedCount: number;
+  /** 起点：默认从第一步「激活先验」开始；'quiz' 用于「我直接测一下」。 */
+  startPhase?: 'activation' | 'quiz';
 }>();
 
 const emit = defineEmits<{ complete: [summary: Card333Summary]; exit: [] }>();
@@ -51,7 +53,7 @@ type Phase =
   | 'quizVerdict'
   | 'done';
 
-const phase = ref<Phase>('activation');
+const phase = ref<Phase>(props.startPhase === 'quiz' ? 'quiz' : 'activation');
 const busy = ref(false);
 const startedAt = ref(Date.now());
 

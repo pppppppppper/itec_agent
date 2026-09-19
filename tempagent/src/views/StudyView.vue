@@ -40,6 +40,7 @@ const {
   ask,
   jumpTo,
   start333,
+  cardStartPhase,
   restoreActiveNode,
   exitCard,
   completeNode,
@@ -139,6 +140,7 @@ function newTopic() {
           v-if="cardActive && card"
           :card="card"
           :completed-count="completedCount"
+          :start-phase="cardStartPhase"
           @exit="exitCard"
           @complete="completeNode"
         />
@@ -147,6 +149,7 @@ function newTopic() {
           v-else-if="activeNode"
           :node="activeNode"
           :map="state.map"
+          :statuses="state.nodeStatus"
           :detail="detail"
           :card="card"
           :status="state.nodeStatus[activeNode.id] ?? activeNode.status"
@@ -154,6 +157,7 @@ function newTopic() {
           :loading-card="busy.node && !card"
           @jump="jumpTo"
           @start333="start333"
+          @ask="(q) => ask(q)"
         />
 
         <p v-else class="detail__pending">从左边选一个知识点开始。</p>

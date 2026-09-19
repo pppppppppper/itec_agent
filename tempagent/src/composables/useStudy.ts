@@ -284,8 +284,12 @@ export function useStudy() {
     }
   };
 
-  const start333 = () => {
+  /** 333 向导的起点：默认走完整六步，也可直接从自测开始（§6.2 第四层的「生成自测题」）。 */
+  const cardStartPhase = ref<'activation' | 'quiz'>('activation');
+
+  const start333 = (phase: 'activation' | 'quiz' = 'activation') => {
     if (!card.value) return;
+    cardStartPhase.value = phase;
     cardActive.value = true;
     append({ id: uid(), role: 'avatar', text: COPY.startStudy, ts: Date.now(), state: 'encouraging' });
   };
@@ -374,6 +378,7 @@ export function useStudy() {
     ask,
     jumpTo,
     start333,
+    cardStartPhase,
     restoreActiveNode,
     exitCard,
     completeNode,

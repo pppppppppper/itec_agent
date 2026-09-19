@@ -56,7 +56,6 @@ export function useStudy() {
   const activeId = ref<string | null>(INITIAL_STATE.lastNodeId);
   const detail = ref<NodePayload | null>(null);
   const card = ref<Card333Payload | null>(null);
-  const started333 = ref(false);
   /** 333 六步向导是否正占据中栏。 */
   const cardActive = ref(false);
   const busy = reactive({ map: false, node: false, qa: false });
@@ -125,7 +124,6 @@ export function useStudy() {
 
     detail.value = null;
     card.value = null;
-    started333.value = false;
     cardActive.value = false;
     activeId.value = null;
 
@@ -181,7 +179,6 @@ export function useStudy() {
     activeId.value = node.id;
     detail.value = null;
     card.value = null;
-    started333.value = false;
     cardActive.value = false;
 
     const existing = snapshot.nodeRecords[node.id];
@@ -260,7 +257,6 @@ export function useStudy() {
 
   const start333 = () => {
     if (!card.value) return;
-    started333.value = true;
     cardActive.value = true;
     append({ id: uid(), role: 'avatar', text: COPY.startStudy, ts: Date.now(), state: 'encouraging' });
   };
@@ -284,7 +280,6 @@ export function useStudy() {
       step: 6,
     };
     cardActive.value = false;
-    started333.value = false;
 
     // 挑一个「前置已全部掌握」的未学节点作为下一步建议
     const next = state.value.map?.nodes.find(
@@ -322,7 +317,6 @@ export function useStudy() {
     activeId.value = null;
     detail.value = null;
     card.value = null;
-    started333.value = false;
     cardActive.value = false;
   };
 
@@ -333,7 +327,6 @@ export function useStudy() {
     detail,
     card,
     busy,
-    started333,
     cardActive,
     progress,
     completedCount,

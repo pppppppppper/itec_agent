@@ -69,7 +69,13 @@ const skipped = ref(0);
 const currentQuestion = computed(() => props.card.questions[quizIndex.value]);
 const keyPointsHit = computed(() => marks.value.filter((m) => m === 'hit').length);
 const quizCorrect = computed(() => verdicts.value.filter((v) => v?.verdict === 'correct').length);
-const elapsedMs = computed(() => Date.now() - startedAt.value);
+/**
+ * 故意写成普通函数而不是 computed：computed 会把第一次求值的时刻缓存住，
+ * 一旦有人在进入 done 之前读过它，最终显示的用时就会是错的。
+ */
+function elapsedMs() {
+  return Date.now() - startedAt.value;
+}
 
 /** 三个药丸对应「333」的三个 3，六步映射到药丸上。 */
 const pillIndex = computed(() => {
@@ -211,7 +217,7 @@ function finish() {
     concept: props.card.concept,
     keyPointsHit: keyPointsHit.value,
     quizCorrect: quizCorrect.value,
-    elapsedMs: elapsedMs.value,
+    elapsedMs: elapsedMs(),
     skipped: skipped.value,
   });
 }
@@ -468,7 +474,7 @@ const closingRemark = computed(() => {
           <StudyAvatar state="celebrating" :size="56" />
           <div>
             <h3>你完成了「{{ card.concept }}」的 333 学习</h3>
-            <p>用时 {{ formatDuration(elapsedMs) }}</p>
+            <p>用时 {{ formatDuration(elapsedMs()) }}</p>
           </div>
         </header>
 

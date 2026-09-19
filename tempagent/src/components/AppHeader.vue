@@ -1,7 +1,8 @@
 <script setup>
 import { computed } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useAuth } from '../composables/useAuth'
+import { loadState } from '../state/store'
 import AppIcon from './AppIcon.vue'
 import BrandMark from './BrandMark.vue'
 
@@ -12,11 +13,28 @@ const navItems = [
 ]
 
 const route = useRoute()
+const router = useRouter()
 const { user, logout } = useAuth()
 
 const isHome = computed(() => route.name === 'home')
 const isAuthPage = computed(() => route.name === 'auth')
 const avatarText = computed(() => (user.value?.name || user.value?.account || '学').slice(0, 1))
+
+/**
+ * 「继续上次学习」——原来这个按钮没有任何点击处理，点了没反应。
+ * 现在读一次本地进度：有学过就直接回学习空间接着学，没学过则禁用并说明原因，
+ * 而不是让用户点完被静默弹回首页。
+ */
+const saved = loadState()
+const hasProgress = computed(() => Boolean(saved.map && saved.topic))
+const resumeTitle = computed(() =>
+  hasProgress.value ? `继续「${saved.topic}」` : '还没有学习记录，先输入一个主题吧',
+)
+
+function resumeStudy() {
+  if (!hasProgress.value) return
+  router.push('/study')
+}
 </script>
 
 <template>
@@ -48,7 +66,14 @@ const avatarText = computed(() => (user.value?.name || user.value?.account || '�
           <span>返回首页</span>
         </RouterLink>
 
-        <button v-else type="button" class="resume-button" title="继续上次的学习地图">
+        <button
+          v-else
+          type="button"
+          class="resume-button"
+          :disabled="!hasProgress"
+          :title="resumeTitle"
+          @click="resumeStudy"
+        >
           <span>继续上次学习</span>
           <AppIcon name="arrow-right" :size="16" />
         </button>
@@ -164,13 +189,20 @@ const avatarText = computed(() => (user.value?.name || user.value?.account || '�
     transform 0.18s ease;
 }
 
-.resume-button:hover {
+.resume-button:hover:not(:disabled) {
   background: #d7e5ff;
   transform: translateY(-1px);
 }
 
-.resume-button:active {
+.resume-button:active:not(:disabled) {
   transform: translateY(0);
+}
+
+/* 没有学习记录时禁用：按钮还在原位，用户看得到这个功能，但不会点了被静默弹回 */
+.resume-button:disabled {
+  background: var(--surface-muted);
+  color: var(--ink-400);
+  cursor: not-allowed;
 }
 
 .login-button {

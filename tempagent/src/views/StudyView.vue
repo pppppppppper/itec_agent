@@ -11,6 +11,7 @@
  */
 import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import AppHeader from '../components/AppHeader.vue';
 import AppIcon from '../components/AppIcon.vue';
 import ChatPanel from '../components/study/ChatPanel.vue';
 import MapTree from '../components/study/MapTree.vue';
@@ -78,36 +79,7 @@ function newTopic() {
 
 <template>
   <div class="study">
-    <header class="study-header">
-      <div class="study-header__inner">
-        <RouterLink class="brand" to="/">
-          <svg class="brand__mark" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-            <path
-              d="M8.6 8.4 18.8 12.3M18.8 12.3 11.8 20.4M11.8 20.4 8.6 8.4"
-              stroke="#3f6fdd"
-              stroke-width="1.7"
-              stroke-linecap="round"
-              opacity="0.65"
-            />
-            <circle cx="8.6" cy="8.4" r="3.5" fill="#2f6bf0" />
-            <circle cx="18.8" cy="12.3" r="2.9" fill="#7aa7f8" />
-            <circle cx="11.8" cy="20.4" r="2.9" fill="#7aa7f8" />
-          </svg>
-          <span class="brand__name">智图伙伴</span>
-        </RouterLink>
-
-        <nav class="study-nav" aria-label="主导航">
-          <span class="study-nav__item is-active">学习空间</span>
-          <button type="button" class="study-nav__item" disabled title="待接入">概念检索</button>
-          <button type="button" class="study-nav__item" disabled title="待接入">学习记录</button>
-        </nav>
-
-        <button type="button" class="study-header__cta" @click="newTopic">
-          <AppIcon name="sparkle" :size="15" />
-          <span>新建学习主题</span>
-        </button>
-      </div>
-    </header>
+    <AppHeader />
 
     <main class="workspace">
       <section class="col col--map">
@@ -130,18 +102,24 @@ function newTopic() {
             <h2 class="topic-title">{{ state.topic }}</h2>
             <p class="topic-sub">从知识地图开始，一步步理解与掌握</p>
           </div>
-          <div class="progress">
-            <span class="progress__text">
-              已学习 {{ progress.mastered }} / {{ progress.total }} 个知识点
-            </span>
-            <span class="progress__bar">
-              <span
-                class="progress__fill"
-                :style="{
-                  width: `${progress.total ? (progress.mastered / progress.total) * 100 : 0}%`,
-                }"
-              />
-            </span>
+          <div class="topic-head__right">
+            <div class="progress">
+              <span class="progress__text">
+                已学习 {{ progress.mastered }} / {{ progress.total }} 个知识点
+              </span>
+              <span class="progress__bar">
+                <span
+                  class="progress__fill"
+                  :style="{
+                    width: `${progress.total ? (progress.mastered / progress.total) * 100 : 0}%`,
+                  }"
+                />
+              </span>
+            </div>
+            <button type="button" class="new-topic" @click="newTopic">
+              <AppIcon name="sparkle" :size="15" />
+              <span>新建学习主题</span>
+            </button>
           </div>
         </div>
 
@@ -196,99 +174,6 @@ function newTopic() {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-}
-
-.study-header {
-  position: sticky;
-  top: 0;
-  z-index: 20;
-  background: rgba(255, 255, 255, 0.9);
-  border-bottom: 1px solid var(--border);
-  backdrop-filter: saturate(180%) blur(12px);
-}
-
-.study-header__inner {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  height: var(--header-height);
-  width: min(1500px, 100% - 48px);
-  margin-inline: auto;
-}
-
-.brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-}
-
-.brand__mark {
-  width: 27px;
-  height: 27px;
-}
-
-.brand__name {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--ink-900);
-}
-
-.study-nav {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex: 1;
-}
-
-.study-nav__item {
-  position: relative;
-  padding: 6px 14px;
-  border-radius: var(--radius-sm);
-  font-size: 15px;
-  color: var(--ink-600);
-}
-
-.study-nav__item:disabled {
-  color: var(--ink-300);
-  cursor: not-allowed;
-}
-
-.study-nav__item.is-active {
-  color: var(--brand-600);
-  font-weight: 600;
-}
-
-.study-nav__item.is-active::after {
-  content: '';
-  position: absolute;
-  left: 50%;
-  bottom: -6px;
-  width: 22px;
-  height: 2px;
-  border-radius: 2px;
-  background: var(--brand-600);
-  transform: translateX(-50%);
-}
-
-.study-header__cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 9px 16px;
-  border-radius: 10px;
-  background: var(--brand-600);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  box-shadow: var(--shadow-brand);
-  transition:
-    background-color 0.18s ease,
-    transform 0.18s ease;
-}
-
-.study-header__cta:hover {
-  background: var(--brand-700);
-  transform: translateY(-1px);
 }
 
 .workspace {
@@ -364,9 +249,37 @@ function newTopic() {
   font-size: 12.5px;
 }
 
+.topic-head__right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.new-topic {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--brand-600);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  box-shadow: var(--shadow-brand);
+  white-space: nowrap;
+  transition:
+    background-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.new-topic:hover {
+  background: var(--brand-700);
+  transform: translateY(-1px);
+}
+
 .progress {
   text-align: right;
-  min-width: 170px;
+  min-width: 150px;
 }
 
 .progress__text {
@@ -487,6 +400,13 @@ function newTopic() {
     flex-direction: column;
     gap: 10px;
   }
+  .topic-head__right {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
   .progress {
     text-align: left;
     width: 100%;

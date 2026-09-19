@@ -428,4 +428,21 @@ function newTopic() {
     width: 100%;
   }
 }
+/**
+ * 矮视口（手机横屏、小窗口）—— 必须放在所有宽度断点**之后**。
+ *
+ * 上面的断点全是按宽度写的，但垂直空间紧张时两个固定值会失准：
+ *   · 地图列的 max-height: 42vh —— 667x375 上算出来只有 158px，两行树都看不全；
+ *   · 聊天列的 min-height: 420px —— 比 375px 的整个视口还高。
+ * 放前面会被同优先级的 42vh 覆盖，实测踩过这个坑。
+ */
+@media (max-height: 560px) {
+  .col--map {
+    max-height: 55vh;
+  }
+
+  .col--chat {
+    min-height: min(420px, 70vh);
+  }
+}
 </style>

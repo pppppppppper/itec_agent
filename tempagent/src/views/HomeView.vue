@@ -8,7 +8,7 @@ import LearnRequestCard from '../components/LearnRequestCard.vue'
 import SiteFooter from '../components/SiteFooter.vue'
 import TopicChips from '../components/TopicChips.vue'
 
-const topic = ref('机器学习入门')
+const topic = ref('')
 const role = ref('大学生')
 const level = ref('零基础')
 const showGuide = ref(false)
@@ -132,7 +132,6 @@ function useTopic(value) {
 
 .hero {
   position: relative;
-  z-index: 1;
   padding-top: 46px;
   text-align: center;
 }

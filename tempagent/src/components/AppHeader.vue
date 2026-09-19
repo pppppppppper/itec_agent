@@ -1,31 +1,37 @@
 <script setup>
+import { computed } from 'vue'
+import { RouterLink, useRoute } from 'vue-router'
+import { useAuth } from '../composables/useAuth'
+import AppIcon from './AppIcon.vue'
+import BrandMark from './BrandMark.vue'
+
 const navItems = [
   { label: '首页', href: '#top' },
   { label: '学习方法', href: '#topics' },
   { label: '功能介绍', href: '#features' },
 ]
+
+const route = useRoute()
+const { user, logout } = useAuth()
+
+const isHome = computed(() => route.name === 'home')
+const isAuthPage = computed(() => route.name === 'auth')
+const avatarText = computed(() => (user.value?.name || user.value?.account || '学').slice(0, 1))
 </script>
 
 <template>
   <header class="site-header">
     <div class="shell site-header__inner">
-      <a class="brand" href="#top">
-        <svg class="brand__mark" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-          <path
-            d="M8.6 8.4 18.8 12.3M18.8 12.3 11.8 20.4M11.8 20.4 8.6 8.4"
-            stroke="#3f6fdd"
-            stroke-width="1.7"
-            stroke-linecap="round"
-            opacity="0.65"
-          />
-          <circle cx="8.6" cy="8.4" r="3.5" fill="#2f6bf0" />
-          <circle cx="18.8" cy="12.3" r="2.9" fill="#7aa7f8" />
-          <circle cx="11.8" cy="20.4" r="2.9" fill="#7aa7f8" />
-        </svg>
+      <RouterLink v-if="!isHome" class="brand" to="/">
+        <BrandMark :size="27" />
+        <span class="brand__name">智图伙伴</span>
+      </RouterLink>
+      <a v-else class="brand" href="#top">
+        <BrandMark :size="27" />
         <span class="brand__name">智图伙伴</span>
       </a>
 
-      <nav class="site-nav" aria-label="主导航">
+      <nav v-if="isHome" class="site-nav" aria-label="主导航">
         <a
           v-for="item in navItems"
           :key="item.label"
@@ -37,18 +43,32 @@ const navItems = [
         </a>
       </nav>
 
-      <button type="button" class="resume-button" title="继续上次的学习地图">
-        <span>继续上次学习</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path
-            d="M4.6 12h14.2M13.4 6.4 19 12l-5.6 5.6"
-            stroke="currentColor"
-            stroke-width="1.9"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-      </button>
+      <div class="site-header__actions">
+        <RouterLink v-if="!isHome" class="resume-button resume-button--link" to="/">
+          <span>返回首页</span>
+        </RouterLink>
+
+        <button v-else type="button" class="resume-button" title="继续上次的学习地图">
+          <span>继续上次学习</span>
+          <AppIcon name="arrow-right" :size="16" />
+        </button>
+
+        <RouterLink
+          v-if="!user && !isAuthPage"
+          class="login-button"
+          :to="{ name: 'auth', query: { redirect: route.fullPath } }"
+        >
+          登录
+        </RouterLink>
+
+        <template v-else-if="user">
+          <RouterLink class="user-chip" to="/profile" :title="`${user.name} · ${user.account}`">
+            <span class="user-chip__avatar">{{ avatarText }}</span>
+            <span class="user-chip__email">{{ user.account }}</span>
+          </RouterLink>
+          <button type="button" class="logout-button" @click="logout">退出</button>
+        </template>
+      </div>
     </div>
   </header>
 </template>
@@ -74,11 +94,6 @@ const navItems = [
   display: inline-flex;
   align-items: center;
   gap: 9px;
-}
-
-.brand__mark {
-  width: 27px;
-  height: 27px;
 }
 
 .brand__name {
@@ -127,11 +142,17 @@ const navItems = [
   transform: translateX(-50%);
 }
 
+.site-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
 .resume-button {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-left: auto;
   padding: 9px 16px;
   border-radius: 10px;
   background: var(--brand-100);
@@ -152,6 +173,90 @@ const navItems = [
   transform: translateY(0);
 }
 
+.login-button {
+  display: inline-flex;
+  align-items: center;
+  padding: 9px 20px;
+  border-radius: 10px;
+  background: var(--brand-600);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: var(--shadow-brand);
+  transition:
+    background-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.login-button:hover {
+  background: var(--brand-700);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.32);
+}
+
+.login-button:active {
+  transform: translateY(0);
+}
+
+.user-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 5px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.user-chip:hover {
+  border-color: var(--brand-200);
+  background: var(--brand-50);
+  transform: translateY(-1px);
+}
+
+.user-chip__avatar {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--brand-600);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  flex: none;
+}
+
+.user-chip__email {
+  max-width: 190px;
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink-800);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logout-button {
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--ink-500);
+  transition:
+    color 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.logout-button:hover {
+  color: var(--danger-600);
+  background: var(--danger-50);
+}
+
 @media (max-width: 860px) {
   .site-header__inner {
     gap: 14px;
@@ -163,8 +268,32 @@ const navItems = [
 }
 
 @media (max-width: 480px) {
+  .site-header__actions {
+    gap: 8px;
+  }
+
+  .resume-button {
+    padding: 9px 12px;
+  }
+
   .resume-button span {
     display: none;
+  }
+
+  .resume-button--link {
+    padding: 9px 14px;
+  }
+
+  .resume-button--link span {
+    display: inline;
+  }
+
+  .login-button {
+    padding: 9px 16px;
+  }
+
+  .user-chip__email {
+    max-width: 92px;
   }
 }
 </style>

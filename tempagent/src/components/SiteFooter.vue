@@ -1,7 +1,7 @@
 <script setup>
 import AppIcon from './AppIcon.vue'
 
-const notes = ['无需登录', '自动保存学习进度', '支持随时重新生成']
+const notes = ['智能体伴学', '自动保存学习进度', '支持随时重新生成']
 </script>
 
 <template>
@@ -18,7 +18,6 @@ const notes = ['无需登录', '自动保存学习进度', '支持随时重新�
 <style scoped>
 .site-footer {
   position: relative;
-  z-index: 1;
   padding: 28px 0 36px;
 }
 

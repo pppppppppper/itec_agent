@@ -99,6 +99,23 @@ defineProps({
     <template v-else-if="name === 'spinner'">
       <path d="M20.4 12a8.4 8.4 0 1 0-8.4 8.4" stroke-width="2.2" />
     </template>
+
+    <template v-else-if="name === 'eye'">
+      <path d="M2.6 12S6.3 5.9 12 5.9 21.4 12 21.4 12 17.7 18.1 12 18.1 2.6 12 2.6 12z" />
+      <circle cx="12" cy="12" r="3.1" />
+    </template>
+
+    <template v-else-if="name === 'eye-off'">
+      <path d="M4 4l16 16" stroke-width="2" />
+      <path
+        d="M9.6 6.1A9.9 9.9 0 0 1 12 5.9c5.7 0 9.4 6.1 9.4 6.1a17.6 17.6 0 0 1-2.9 3.6M6.8 7.9A17.5 17.5 0 0 0 2.6 12S6.3 18.1 12 18.1c1 0 1.9-.2 2.8-.5"
+      />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+    </template>
+
+    <template v-else-if="name === 'check'">
+      <path d="M4.6 12.4l5 5L19.4 7.4" stroke-width="2.6" />
+    </template>
   </svg>
 </template>
 

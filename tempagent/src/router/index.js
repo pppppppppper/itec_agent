@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
+import { isAuthenticated } from '../composables/useAuth'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -8,6 +9,19 @@ const router = createRouter({
       path: '/',
       name: 'home',
       component: HomeView,
+    },
+    {
+      path: '/auth',
+      name: 'auth',
+      // 登录 / 注册页，独立分包按需加载
+      component: () => import('../views/AuthView.vue'),
+      beforeEnter: () => (isAuthenticated() ? { name: 'home' } : true),
+    },
+    {
+      path: '/profile',
+      name: 'profile',
+      // 个人中心暂未实现，先保留路由占位，避免点击头像后出现空白页
+      component: () => import('../views/ProfileView.vue'),
     },
     {
       path: '/about',

@@ -28,7 +28,6 @@ defineEmits(['select'])
 <style scoped>
 .topics {
   position: relative;
-  z-index: 1;
   padding-top: 30px;
   text-align: center;
   scroll-margin-top: 90px;

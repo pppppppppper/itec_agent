@@ -12,7 +12,7 @@ const features = [
     index: '02',
     icon: 'study-board',
     title: '333 高效学习',
-    desc: '3 分钟理解 · 3 个关键点 · 3 道自测',
+    desc: '30 分钟概念学习 · 30 分钟知识复述 · 30 分钟题目检测',
   },
   {
     index: '03',
@@ -43,7 +43,6 @@ const features = [
 <style scoped>
 .features {
   position: relative;
-  z-index: 1;
   padding-top: 30px;
   scroll-margin-top: 90px;
 }

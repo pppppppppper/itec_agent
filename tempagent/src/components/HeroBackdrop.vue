@@ -68,6 +68,7 @@ import AppIcon from './AppIcon.vue'
 .backdrop {
   position: absolute;
   inset: 0;
+  z-index: 0;
   overflow: hidden;
   pointer-events: none;
 }

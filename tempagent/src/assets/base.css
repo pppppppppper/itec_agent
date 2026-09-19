@@ -25,7 +25,10 @@
   /* 语义色 */
   --success-600: #16a34a;
   --success-500: #22c55e;
+  --success-50: #eefaf2;
   --warn-600: #d18700;
+  --danger-600: #d92d20;
+  --danger-50: #fef3f2;
 
   /* 表面与描边 */
   --page: #f4f8ff;

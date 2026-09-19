@@ -8,10 +8,12 @@
 import { ref, watch } from 'vue';
 import AppIcon from '../AppIcon.vue';
 import LossCurve from './LossCurve.vue';
-import type { Card333Payload, MapNode, NodePayload, NodeStatus } from '../../contract/types';
+import type { Card333Payload, MapNode, MapPayload, NodePayload, NodeStatus } from '../../contract/types';
 
 const props = defineProps<{
   node: MapNode;
+  /** 用来把 relations 里的节点 id 显示成中文名（id 是给程序看的，不该给用户看）。 */
+  map: MapPayload | null;
   detail: NodePayload | null;
   card: Card333Payload | null;
   status: NodeStatus;
@@ -51,6 +53,16 @@ watch(
 );
 
 const related = () => props.detail?.related ?? props.node.related;
+
+/**
+ * relations 数组里存的是节点 id（如 decision_tree）。直接渲染会漏出英文 id，
+ * 而用户只认识「决策树」。这里统一解析成 name；解析不到就原样返回，
+ * 保证 Agent 直接给 name 时也能正常显示。
+ */
+function nameOf(key: string): string {
+  const nodes = props.map?.nodes ?? [];
+  return nodes.find((n) => n.id === key)?.name ?? nodes.find((n) => n.name === key)?.name ?? key;
+}
 </script>
 
 <template>
@@ -96,7 +108,7 @@ const related = () => props.detail?.related ?? props.node.related;
         <div v-if="related().length > 0" class="chips">
           <span class="chips__label">相关概念</span>
           <button v-for="key in related()" :key="key" type="button" class="chip" @click="emit('jump', key)">
-            {{ key }}
+            {{ nameOf(key) }}
           </button>
         </div>
       </template>

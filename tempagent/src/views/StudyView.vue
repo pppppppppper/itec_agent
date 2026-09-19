@@ -57,6 +57,10 @@ onMounted(async () => {
     const level = typeof route.query.level === 'string' ? route.query.level : undefined;
     await submitTopic(topic, { role, level });
     void router.replace({ path: '/study' });
+    // submitTopic 只负责生成地图并挑出推荐节点，它不会拉讲解——
+    // 不补这一步，中栏就停在地图里那句 description 上：
+    // 没有损失曲线、没有「考试复习/代码示例」，333 卡片也是空的。
+    await restoreActiveNode();
   } else if (!state.value.map) {
     // 没有主题也没有历史进度：回落地页输入
     void router.replace('/');
@@ -142,6 +146,7 @@ function newTopic() {
         <NodeDetail
           v-else-if="activeNode"
           :node="activeNode"
+          :map="state.map"
           :detail="detail"
           :card="card"
           :status="state.nodeStatus[activeNode.id] ?? activeNode.status"
@@ -395,9 +400,13 @@ function newTopic() {
     width: min(1500px, 100% - 28px);
     gap: 14px;
   }
+  /* 单列时地图排在内容前面（叙事顺序：先看地图，再学节点），
+     但整棵树有 12 个节点、2700px 高，不限制的话要滑很久才够得到学习内容。
+     这里让它自己内部滚动，既不改变顺序，也不挡住下面的内容。 */
   .col--map {
     position: static;
-    max-height: none;
+    max-height: 42vh;
+    overflow: auto;
   }
   .topic-head {
     flex-direction: column;

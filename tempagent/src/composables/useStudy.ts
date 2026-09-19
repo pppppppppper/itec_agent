@@ -185,11 +185,10 @@ export function useStudy() {
         lastNodeId: null,
       };
       const recommended = pickRecommendedNode(next);
-      if (recommended) {
-        activeId.value = recommended.id;
-        next.lastNodeId = recommended.id;
-      }
       state.value = next;
+      // 走和「点节点」完全相同的初始化，否则两条路径的状态会不一致
+      if (recommended) enterNode(recommended);
+      if (recommended) announceNode(recommended);
 
       settlePending(pendingId, {
         text: map.say ?? `我把「${map.topic}」拆成了 ${map.nodes.length} 个知识点。`,
@@ -204,15 +203,23 @@ export function useStudy() {
   };
 
   /* ── 选中节点：前置提醒（本地判定，不用等 Agent）+ 并发拉讲解与 333 卡 ── */
-  const selectNode = async (node: MapNode) => {
-    const snapshot = state.value;
-    const epoch = ++viewEpoch;
+  /**
+   * 进入某个节点时要做的本地状态初始化。
+   *
+   * **两条路径都必须走这里**：用户在树上点节点（selectNode），以及生成地图后
+   * 自动选中推荐节点（submitTopic）。以前后者是手写的一小段，漏了三样东西，
+   * 结果同一个节点「点进去」和「自动选中」的状态不一样——已经因此咬过两次
+   * （生成地图后讲解不加载、333 进度不落盘），所以统一到一处。
+   */
+  const enterNode = (node: MapNode) => {
     activeId.value = node.id;
     detail.value = null;
     card.value = null;
     cardActive.value = false;
+    wizardResume.value = null;
+    resumedFrom.value = null;
 
-    const existing = snapshot.nodeRecords[node.id];
+    const existing = state.value.nodeRecords[node.id];
     state.value.nodeRecords[node.id] = {
       nodeId: node.id,
       startedAt: existing?.startedAt ?? Date.now(),
@@ -221,8 +228,15 @@ export function useStudy() {
       state.value.nodeStatus[node.id] = 'learning';
     }
     state.value.lastNodeId = node.id;
+  };
 
-    const unmet = unmetPrerequisites(snapshot, node.id);
+  /**
+   * 数字人的前置提示（§6.2：节点详情旁要做前置知识检查）。
+   * 点节点和「生成地图后自动选中」都要说，否则两条路径的体验不一致——
+   * 自动选中的节点如果前置没掌握，用户就得不到任何提醒。
+   */
+  const announceNode = (node: MapNode) => {
+    const unmet = unmetPrerequisites(state.value, node.id);
     append({
       id: uid(),
       role: 'avatar',
@@ -233,6 +247,14 @@ export function useStudy() {
       ts: Date.now(),
       state: unmet.length > 0 ? 'probing' : 'encouraging',
     });
+  };
+
+  const selectNode = async (node: MapNode) => {
+    const snapshot = state.value;
+    const epoch = ++viewEpoch;
+    enterNode(node);
+
+    announceNode(node);
 
     busy.node = true;
     try {
@@ -312,8 +334,19 @@ export function useStudy() {
       if (epoch !== viewEpoch) return;
       detail.value = nodeResult.payload;
       card.value = cardResult.payload;
-    } catch {
-      // 恢复失败就停在节点的基础信息上，不阻塞页面，也不弹错误
+    } catch (error) {
+      // 以前这里是静默吞掉的：讲解拉不回来时页面只是「内容变少」，
+      // 用户完全不知道发生了什么。改成和 selectNode 一样给出提示。
+      if (epoch === viewEpoch) {
+        append({
+          id: uid(),
+          role: 'avatar',
+          text: `${COPY.degraded}（${error instanceof Error ? error.message : '未知错误'}）`,
+          ts: Date.now(),
+          state: 'idle',
+          degraded: true,
+        });
+      }
     } finally {
       busy.node = false;
     }

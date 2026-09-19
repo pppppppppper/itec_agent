@@ -1,0 +1,17 @@
+@import './base.css';
+
+#app {
+  min-height: 100vh;
+}
+
+/* 页面统一的内容宽度约束 */
+.shell {
+  width: min(var(--shell), 100% - 48px);
+  margin-inline: auto;
+}
+
+@media (max-width: 640px) {
+  .shell {
+    width: min(var(--shell), 100% - 32px);
+  }
+}

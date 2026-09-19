@@ -40,6 +40,7 @@ const {
   ask,
   jumpTo,
   start333,
+  restoreActiveNode,
   exitCard,
   completeNode,
   reset,
@@ -62,6 +63,8 @@ onMounted(async () => {
     return;
   } else {
     greetOnReturn();
+    // 刷新后把中栏的讲解与 333 卡补回来（§14.9 刷新不丢状态）
+    void restoreActiveNode();
   }
 
   booting.value = false;

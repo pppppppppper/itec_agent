@@ -7,6 +7,7 @@ import FeatureGrid from '../components/FeatureGrid.vue'
 import HeroBackdrop from '../components/HeroBackdrop.vue'
 import LearnRequestCard from '../components/LearnRequestCard.vue'
 import SiteFooter from '../components/SiteFooter.vue'
+import StudyAvatar from '../components/study/StudyAvatar.vue'
 import TopicChips from '../components/TopicChips.vue'
 
 const router = useRouter()
@@ -65,6 +66,11 @@ function startStudy({ topic: value, role: roleValue, level: levelValue }) {
           <p class="hero__subtitle">
             AI 将为你拆解知识结构、讲解核心概念，并用 333 学法帮助你真正掌握。
           </p>
+
+          <div class="hero__partner">
+            <StudyAvatar state="idle" :size="56" />
+            <p class="hero__say">我是智图伙伴，今天想学点什么？</p>
+          </div>
 
           <LearnRequestCard
             v-model:topic="topic"
@@ -178,6 +184,40 @@ function startStudy({ topic: value, role: roleValue, level: levelValue }) {
   margin-top: 14px;
   font-size: 16px;
   color: var(--ink-500);
+}
+
+.hero__partner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.hero__say {
+  position: relative;
+  padding: 10px 16px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+  color: var(--ink-800);
+  font-size: 15px;
+  font-weight: 500;
+  text-align: left;
+}
+
+.hero__say::before {
+  content: '';
+  position: absolute;
+  left: -5px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-left: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  transform: translateY(-50%) rotate(45deg);
 }
 
 .hero__guide {

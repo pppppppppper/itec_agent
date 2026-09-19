@@ -255,6 +255,35 @@ export function useStudy() {
     else void ask(`什么是「${key}」？`);
   };
 
+  /**
+   * 刷新后把当前节点的讲解与 333 卡重新拉回来。
+   *
+   * 为什么需要它：`detail` / `card` 是内存态，刷新即丢；而 `activeId` 存在
+   * localStorage 里会恢复。不补这一步，刷新后中栏会退化成地图里的那一句话简介——
+   * 讲解、损失曲线、「考试复习 / 代码示例」两个 Tab、333 的 3 个关键点全没了，
+   * 而且页面上看不出「没加载」，只是内容悄悄变少（规划 §14.9 要求刷新不丢状态）。
+   *
+   * 与 selectNode 的区别：不发数字人消息、不重复写 nodeRecords。
+   */
+  const restoreActiveNode = async () => {
+    const node = activeNode.value;
+    if (!node || detail.value) return;
+
+    busy.node = true;
+    try {
+      const [nodeResult, cardResult] = await Promise.all([
+        explainNode(node, state.value.topic ?? '机器学习'),
+        makeCard333(node.name),
+      ]);
+      detail.value = nodeResult.payload;
+      card.value = cardResult.payload;
+    } catch {
+      // 恢复失败就停在节点的基础信息上，不阻塞页面，也不弹错误
+    } finally {
+      busy.node = false;
+    }
+  };
+
   const start333 = () => {
     if (!card.value) return;
     cardActive.value = true;
@@ -338,6 +367,7 @@ export function useStudy() {
     ask,
     jumpTo,
     start333,
+    restoreActiveNode,
     exitCard,
     completeNode,
     reset,

@@ -45,10 +45,13 @@ export interface StudyWizardSnapshot {
   recallResult: ProbePayload | null;
   marks: Array<'hit' | 'miss' | null>;
   quizIndex: number;
-  /** 已提交的答案，下标对应题目。 */
-  quizAnswers: string[];
   verdicts: Array<ProbePayload | null>;
   skipped: number;
+  /**
+   * 向导启动时刻。刷新后续学要沿用它——否则「用时」会从刷新那一刻重新算，
+   * 而 §8.1 的「单节点学习时长」正是拿这个值统计的。
+   */
+  startedAt: number;
 }
 
 export interface NodeRecord {

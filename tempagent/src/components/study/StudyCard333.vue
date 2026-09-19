@@ -64,7 +64,7 @@ type Phase =
 const r = props.resume;
 const phase = ref<Phase>((r?.phase as Phase) ?? (props.startPhase === 'quiz' ? 'quiz' : 'activation'));
 const busy = ref(false);
-const startedAt = ref(Date.now());
+const startedAt = ref(r?.startedAt ?? Date.now());
 
 const activation = ref(r?.activation ?? '');
 const recallText = ref(r?.recallText ?? '');
@@ -281,9 +281,9 @@ watch([phase, quizIndex], () => {
     recallResult: recallResult.value,
     marks: [...marks.value],
     quizIndex: quizIndex.value,
-    quizAnswers: verdicts.value.map((_, i) => (i === quizIndex.value ? quizAnswer.value : '')),
     verdicts: [...verdicts.value],
     skipped: skipped.value,
+    startedAt: startedAt.value,
   });
 }, { immediate: true });
 

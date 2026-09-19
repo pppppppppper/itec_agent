@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import AppIcon from './AppIcon.vue'
 import SelectField from './SelectField.vue'
 
@@ -29,10 +29,9 @@ const emit = defineEmits(['submit'])
 const roleOptions = ['大学生', '高中生', '职场人', '转行者', '教师']
 const levelOptions = ['零基础', '有一些基础', '进阶提升']
 
-// idle：初始提示 / loading：生成中 / ok：已生成 / warn：输入需要调整
+// idle：初始提示 / loading：已提交，正在进入学习空间 / ok：已生成 / warn：输入需要调整
 const status = ref('idle')
 const message = ref('')
-let timer = null
 
 const counter = computed(() => `${topic.value.length} / ${MAX_LENGTH}`)
 const canSubmit = computed(() => topic.value.trim().length > 0 && status.value !== 'loading')
@@ -43,13 +42,6 @@ const hintIcon = computed(() => {
   if (status.value === 'warn') return 'info-circle'
   return 'check-circle'
 })
-
-function clearTimer() {
-  if (timer) {
-    clearTimeout(timer)
-    timer = null
-  }
-}
 
 /** 返回错误文案，通过校验时返回空字符串 */
 function validate(value) {
@@ -72,7 +64,6 @@ function validate(value) {
 }
 
 function resetStatus() {
-  clearTimer()
   status.value = 'idle'
   message.value = ''
 }
@@ -87,21 +78,16 @@ function submit() {
     return
   }
 
+  // 这里原来是个 1200ms 的 setTimeout，会骗用户说「已生成学习地图」——
+  // 但既没有调 Agent，emit 出去的 submit 也没人监听。
+  // 现在改成：校验通过就立刻把主题交给 /study，由学习空间真正生成并显示进度。
+  const value = topic.value.trim()
   status.value = 'loading'
-  message.value = '正在拆解知识结构并生成学习地图…'
-
-  clearTimer()
-  timer = setTimeout(() => {
-    timer = null
-    const value = topic.value.trim()
-    status.value = 'ok'
-    message.value = `已为「${value}」生成学习地图，可以从最前面的概念开始学习了。`
-    emit('submit', { topic: value, role: role.value, level: level.value })
-  }, 1200)
+  message.value = '正在进入学习空间…'
+  emit('submit', { topic: value, role: role.value, level: level.value })
 }
 
 watch(topic, resetStatus)
-onBeforeUnmount(clearTimer)
 
 defineExpose({ submit })
 </script>

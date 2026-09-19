@@ -1,5 +1,6 @@
 <script setup>
 import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import AppIcon from '../components/AppIcon.vue'
 import FeatureGrid from '../components/FeatureGrid.vue'
@@ -7,6 +8,8 @@ import HeroBackdrop from '../components/HeroBackdrop.vue'
 import LearnRequestCard from '../components/LearnRequestCard.vue'
 import SiteFooter from '../components/SiteFooter.vue'
 import TopicChips from '../components/TopicChips.vue'
+
+const router = useRouter()
 
 const topic = ref('')
 const role = ref('大学生')
@@ -37,6 +40,15 @@ const guidelines = [
 function useTopic(value) {
   topic.value = value
 }
+
+/**
+ * LearnRequestCard 校验通过后抛出 submit —— 这里才是真正「进入学习空间」的地方。
+ * 之前这个事件是没人接的，卡片自己 setTimeout 假装生成完了。
+ * 主题与学习者背景一起带进 /study，Agent 侧会用 role/level 调整难度与措辞。
+ */
+function startStudy({ topic: value, role: roleValue, level: levelValue }) {
+  router.push({ path: '/study', query: { topic: value, role: roleValue, level: levelValue } })
+}
 </script>
 
 <template>
@@ -54,7 +66,12 @@ function useTopic(value) {
             AI 将为你拆解知识结构、讲解核心概念，并用 333 学法帮助你真正掌握。
           </p>
 
-          <LearnRequestCard v-model:topic="topic" v-model:role="role" v-model:level="level" />
+          <LearnRequestCard
+            v-model:topic="topic"
+            v-model:role="role"
+            v-model:level="level"
+            @submit="startStudy"
+          />
 
           <div class="hero__guide">
             <button

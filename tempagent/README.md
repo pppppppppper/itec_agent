@@ -1,44 +1,187 @@
-# tempagent
+# 智图伙伴
 
-This template should help get you started developing with Vue 3 in Vite.
+学习伙伴型 AI 数字人 —— 每 3 分钟，陪你真正掌握一个知识点。
 
-## Recommended IDE Setup
+参赛项目，Agent 跑在 [OpenHex](https://app.openhex.tech) 平台上。
 
-[VS Code](https://code.visualstudio.com/) + [Vue (Official)](https://marketplace.visualstudio.com/items?itemName=Vue.volar) (and disable Vetur).
+---
 
-## Recommended Browser Setup
+## 架构：为什么需要一台自己的服务器
 
-- Chromium-based browsers (Chrome, Edge, Brave, etc.):
-  - [Vue.js devtools](https://chromewebstore.google.com/detail/vuejs-devtools/nhdogjmejiglipccpnnnanhbledajbpd)
-  - [Turn on Custom Object Formatter in Chrome DevTools](http://bit.ly/object-formatters)
-- Firefox:
-  - [Vue.js devtools](https://addons.mozilla.org/en-US/firefox/addon/vue-js-devtools/)
-  - [Turn on Custom Object Formatter in Firefox DevTools](https://fxdx.dev/firefox-devtools-custom-object-formatters/)
+```
+浏览器
+  │
+  │  /openhex-proxy/api/v2/...        ← 前端只带一个假的占位符 key
+  ▼
+你们的 Node 服务（本仓库 server/index.mjs）
+  │  · 托管 dist/ 静态文件（含 SPA fallback）
+  │  · 把 Authorization 头替换成真实的 mysta_…
+  ▼
+https://api.openhex.tech               ← OpenHex 平台
+  ▼
+Agent                                  ← 在 app.openhex.tech 里配置并「发布上线」
+```
 
-## Customize configuration
+**OpenHex 不能托管这个前端。** 它的「部署上线」只做三件事：发布 Agent、生成平台自带的对话入口（网页链接 / 二维码）、给一段嵌入代码 `<openhex-agent>`。它没有静态托管。
 
-See [Vite Configuration Reference](https://vite.dev/config/).
+所以前端必须部署到自己的服务器。而**必须有一个代理层**的原因是：`mysta_…` 这个 API Key 等于账号的全部权限，绝不能进浏览器。前端传 `injected-by-proxy` 这个明显是假的占位符，由 Node 进程替换掉。
 
-## Project Setup
+---
+
+## 目录结构
+
+```
+src/
+├── contract/          ★ 与 Agent 同学的接口契约（唯一交界面）
+│   ├── types.ts         五种模式的数据结构 + mode 传递约定
+│   ├── schema.ts        zod 运行时校验 + §6.1.2 自我验证规则
+│   └── parse.ts         抽 JSON → 校验 → 重试 → 兜底
+├── agent/
+│   ├── client.ts        OpenhexClient 封装（浏览器里只有占位符 key）
+│   └── modes.ts         五种模式的调用：map / node / card333 / probe / qa
+├── fixtures/          ★ 静态兜底数据，同时是 mock 模式的唯一数据源
+├── state/store.ts       localStorage 持久化（§6.4）
+├── composables/
+│   └── useStudy.ts      学习空间的全部状态与动作
+├── components/
+│   ├── study/           学习空间组件（地图树 / 节点详情 / 曲线 / AI 伙伴 / 头像）
+│   └── ...              落地页组件
+└── views/
+    ├── HomeView.vue     落地页：输入主题
+    └── StudyView.vue    学习空间：三栏仪表盘
+server/index.mjs         静态托管 + /openhex-proxy 反向代理
+scripts/deploy.sh        一键部署
+scripts/check-contract.mjs  契约自检（演示前 30 秒的自检）
+```
+
+---
+
+## 本地开发
 
 ```sh
 npm install
+npm run dev          # http://localhost:5173
 ```
 
-### Compile and Hot-Reload for Development
+**不需要任何配置**就能跑 —— 没填 `VITE_AGENT_ID` 时自动进入 mock 模式，用 `src/fixtures/` 里的数据跑通全部界面。
+
+关于 mock 模式，有一件事要知道：Vite 会在**构建期**把 `isMock` 静态判定为 `true`，于是真链路的代码（SDK、代理地址、JSON 重试逻辑）会被 tree-shaking 整段删掉。所以 mock 包比真包小约 22KB —— 这是正常的，填上 `VITE_AGENT_ID` 重新构建就会回来。
+
+### 常用命令
+
+| 命令 | 作用 |
+|---|---|
+| `npm run dev` | 开发服务器（带 HMR + `/openhex-proxy` 转发） |
+| `npm run build` | 生产构建 |
+| `npm run typecheck` | 契约层类型检查（`tsc --noEmit`） |
+| `npm run check:contract` | 契约自检：fixtures 是否符合 Schema、是否对齐设计稿 |
+| `npm run start` | 本地起生产服务器（先 `build`） |
+
+### 切到真实 Agent
+
+在 `.env` 里填两样东西：
 
 ```sh
-npm run dev
+OPENHEX_API_KEY=mysta_...     # 个人 API Key（服务器/本地，绝不要加 VITE_ 前缀）
+VITE_AGENT_ID=56941e40-...    # Agent ID，浏览器地址栏 /console/ 后面那段
 ```
 
-### Compile and Minify for Production
+`VITE_AGENT_ID` 一填，`isMock` 自动变 false，整个链路切到真实 Agent。开发服务器的代理会注入真实 Key，浏览器侧永远看不到它。
+
+---
+
+## ★ 契约层：要交给做 Agent 的同学
+
+`src/contract/types.ts` 是这个前端与 Agent 之间**唯一的交界面**。请把那个文件直接发给做 Agent 的同学。
+
+有三件事必须说清楚：
+
+**1. 平台没有约定业务数据结构。** OpenHex 只约定传输层（SSE 记录信封、内置卡片、工具调用）。平台没有「知识地图」这个概念，也没有「333 学习卡」。所以 `types.ts` 不是平台规范，而是我们双方的私有约定 —— 对方不会自己知道这些字段名。
+
+**2. Agent 的回复必须是纯 JSON。** 不要「好的，这是你的地图：」这类前言，也不要 markdown 围栏。前端只做一次「取第一个 `{` 到最后一个 `}`」的机械容错，不做自然语言解析。
+
+**3. 所有面向用户的话术都放在字段里**（`say` / `activation_prompt` / `recall_prompt` …）。Agent 不直接对用户说话，前端负责渲染成数字人气泡。
+
+五种模式（§7.1 + §6.5）：
+
+| mode | 触发 | 输出 |
+|---|---|---|
+| `map` | 用户输入主题 | `topic` + `categories` + `nodes[]`（8–15 个）+ `relations[]` |
+| `node` | 点击节点 | 四层内容 + 三个 Tab（通俗理解 / 考试复习 / 代码示例）+ 可选损失曲线 |
+| `card333` | 打开节点 | 六步认知加工链的完整内容（关键点固定 3 个、自测题固定 3 题且覆盖三种题型） |
+| `probe` | 学生提交答案 | 追问话术 + 认知断层定位 |
+| `qa` | 右栏提问 | 结论 → 原因 → 例子 → 关联概念 → 下一步 → 反问 |
+
+mode 由前端在消息里显式指定（`[[mode:map]] 主题：…`），因为平台文档只说「system prompt 中的 mode 字段切换」，没有定义前端怎么触发。
+
+### 失败处理（§7.2）
+
+前端已经实现了三层保障，Agent 侧只需要配合第 2 层：
+
+1. 抽取 → zod 结构校验 → 地图的悬空引用自动修复
+2. **校验失败时，前端会把具体错误信息拼回消息重发一次（最多 2 次）**。收到这种消息时，请只修 JSON 结构，不要改知识点内容。
+3. 仍失败 → 切静态兜底（`src/fixtures/`），数字人说「我暂时没连上网络，先看看示例地图吧」，**任何情况下不出现空白页**。
+
+---
+
+## 部署
+
+服务器：`root@8.152.1.26`（阿里云 Linux 4 / 2 核 / 3.5G）
 
 ```sh
-npm run build
+ZHITU_KEY=/path/to/deploy_key ./scripts/deploy.sh
 ```
 
-### Lint with [ESLint](https://eslint.org/)
+脚本做四件事：契约自检 → 构建 → tar 上传 → 重启 systemd 服务。
 
-```sh
-npm run lint
+服务器上的布局：
+
 ```
+/opt/zhitu/
+├── dist/              静态产物
+├── server/index.mjs   静态托管 + 代理
+└── .env               运行时变量（chmod 600）
+/etc/systemd/system/zhitu.service
+/var/log/zhitu.log
+```
+
+`server/` 目录下没有依赖，所以服务器**不需要 npm install**。
+
+### ⚠️ 首次部署必须做的一件事：放行安全组
+
+这台机器的阿里云安全组**只放行了 22 端口**，其他端口（实测 80、443、3000、5000、8000、8080、8888、9000、18080 等）全部被拦。服务在服务器上跑得再好，外面也访问不到。
+
+阿里云控制台 → 云服务器 ECS → 实例 → 选中这台 → 安全组 → 配置规则 → **入方向** → 手动添加：
+
+| 项 | 值 |
+|---|---|
+| 协议类型 | 自定义 TCP |
+| 端口范围 | `8080/8080` |
+| 授权对象 | `0.0.0.0/0` |
+| 描述 | 智图伙伴 |
+
+保存后立即生效，无需重启服务器。
+
+### 不用 80/443 的原因
+
+国内服务器上 80/443 绑定域名需要 ICP 备案，所以用高位端口。等有备案域名后再改 `PORT=80` 并加 HTTPS。
+
+---
+
+## 当前进度
+
+| | 内容 | 状态 |
+|---|---|---|
+| H1 | 工程骨架 / 契约层 / fixtures / 数字人外壳 / 知识地图 / 三栏布局 | ✅ |
+| H2 | 节点详情三个 Tab 与前置跳转 | ✅ |
+| H3 | 333 六步认知加工链的完整交互 | ⏳ `start333()` 是入口 |
+| H4 | 真链路联调（等 Agent ID + API Key） | ⏳ |
+| H5 | fallback 演练 + 彩排 3 次 | ⏳ |
+
+### 演示前必做
+
+**Agent 的第一条消息要拉起运行环境，可能十几秒。** 演示时输入「机器学习」的那一刻就是第一次对话，评委面前卡十几秒会直接扣分。所以：
+
+1. 彩排前先随便发一条消息把 pod 预热（代码里 `warmUp()` 会在真实模式下自动调用，但不能替代彩排）
+2. 或者把演示第一屏做成静态兜底展示，后台悄悄预热
+3. 准备好预录的 60 秒演示视频作为最终兜底（§10 风险表）

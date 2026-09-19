@@ -1,0 +1,17 @@
+[Unit]
+Description=Zhitu Partner (static site + OpenHex proxy)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/zhitu
+EnvironmentFile=/opt/zhitu/.env
+ExecStart=/usr/local/bin/node /opt/zhitu/server/index.mjs
+Restart=always
+RestartSec=3
+StandardOutput=append:/var/log/zhitu.log
+StandardError=append:/var/log/zhitu.log
+
+[Install]
+WantedBy=multi-user.target

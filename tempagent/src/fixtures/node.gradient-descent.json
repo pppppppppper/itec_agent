@@ -1,0 +1,32 @@
+{
+  "mode": "node",
+  "id": "gradient_descent",
+  "name": "梯度下降",
+  "say": "这个节点的前置你已经有了：微积分与导数、线性回归。我们直接开始吧。",
+  "definition": "一种通过迭代调整参数、让损失函数的值一步步变小的优化算法。",
+  "explanation": "沿着损失下降的方向调整参数，让模型逐步减少预测误差。具体做法是：先算出当前误差的梯度，再沿着梯度的反方向把参数挪动一点点——就像下山时按脚下的坡度选最陡的下坡方向迈一步，反复进行，直到走到山谷。",
+  "example": "预测房价时，模型预测 100 万、实际 120 万，误差 20 万。梯度告诉你把某个参数调大一点误差会变小；调大一点点后再预测，误差降到 15 万，再调降到 10 万……这个过程就是梯度下降。",
+  "misconception": "常见误区是以为「梯度下降一定能找到全局最优」。如果损失函数不是凸的，它可能停在局部最优；学习率不合适时甚至完全不收敛。",
+  "visual": {
+    "kind": "loss_curve",
+    "xLabel": "参数",
+    "yLabel": "损失",
+    "optimum": { "param": 3, "loss": 0 },
+    "steps": [
+      { "param": -2, "loss": 25 },
+      { "param": -0.6, "loss": 12.96 },
+      { "param": 0.4, "loss": 6.76 },
+      { "param": 1.4, "loss": 2.56 },
+      { "param": 2.2, "loss": 0.64 },
+      { "param": 2.7, "loss": 0.09 },
+      { "param": 2.95, "loss": 0.0025 }
+    ]
+  },
+  "exam_focus": "考试里这一节最常考三件事：① 梯度的方向含义（上升最快）与更新方向（取反）的理由；② 学习率过大/过小分别导致震荡发散还是收敛缓慢；③ 批量梯度下降、随机梯度下降、小批量梯度下降三者的区别与取舍。计算题通常会给定损失函数让你写出一次迭代后的参数值，记得先求导再代入。",
+  "code_example": "# 一次梯度下降迭代（线性回归，均方误差）\nimport numpy as np\n\nw, b = 0.0, 0.0          # 参数\nlr = 0.01                # 学习率\nX = np.array([1.0, 2.0, 3.0])\ny = np.array([2.0, 4.0, 6.0])\n\nfor step in range(1000):\n    pred = w * X + b\n    error = pred - y\n    # 损失对参数的梯度\n    grad_w = 2 * np.mean(error * X)\n    grad_b = 2 * np.mean(error)\n    # 沿梯度反方向更新\n    w -= lr * grad_w\n    b -= lr * grad_b\n\nprint(w, b)   # 趋近 2.0, 0.0",
+  "difficulty": 2,
+  "estimated_time": 8,
+  "prerequisites": ["calculus_derivative", "linear_regression"],
+  "related": ["decision_tree"],
+  "successor": ["model_training"]
+}

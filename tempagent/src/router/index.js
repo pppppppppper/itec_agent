@@ -24,6 +24,12 @@ const router = createRouter({
       component: () => import('../views/ProfileView.vue'),
     },
     {
+      path: '/study',
+      name: 'study',
+      // 学习空间比较重（契约层 + zod + SDK），单独切一个 chunk
+      component: () => import('../views/StudyView.vue'),
+    },
+    {
       path: '/about',
       name: 'about',
       // route level code-splitting
@@ -32,6 +38,9 @@ const router = createRouter({
       component: () => import('../views/AboutView.vue'),
     },
   ],
+  scrollBehavior(_to, _from, savedPosition) {
+    return savedPosition ?? { top: 0 }
+  },
 })
 
 export default router

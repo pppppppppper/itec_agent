@@ -34,6 +34,19 @@ const uid = () =>
  */
 const INITIAL_STATE = loadState();
 
+/**
+ * 「当前看的是哪个节点」的版本号。
+ *
+ * 每次切换节点、重新生成地图、或刷新后恢复时自增；异步结果回来时对不上版本号
+ * 就丢弃，绝不写进界面。
+ *
+ * 为什么必须有：真实 Agent 一次调用要十几秒，用户点完一个节点等不及、再点另一个
+ * 是必然发生的。两个请求并发时先点的可能后返回，于是界面出现「标题是 B、
+ * 内容是 A」的错配——而且可能一直错下去，用户看到的是完全错误的知识点讲解。
+ * 实测在 mock 的 900ms 延迟下就已经能复现出约 120ms 的错配窗口。
+ */
+let viewEpoch = 0;
+
 /** 地图生成后自动选中：优先「学习中」的节点，否则挑前置已掌握的第一个未学节点。 */
 function pickRecommendedNode(state: PersistedState): MapNode | null {
   const map = state.map;
@@ -122,6 +135,9 @@ export function useStudy() {
       return;
     }
 
+    // 作废所有在途的节点/地图请求：旧结果绝不能落到新主题上
+    const epoch = ++viewEpoch;
+
     detail.value = null;
     card.value = null;
     cardActive.value = false;
@@ -143,6 +159,7 @@ export function useStudy() {
 
     try {
       const result = await generateMap(topic, context);
+      if (epoch !== viewEpoch) return;
       const map = result.payload;
       const nodeStatus: Record<string, NodeStatus> = {};
       for (const node of map.nodes) nodeStatus[node.id] = node.status;
@@ -176,6 +193,7 @@ export function useStudy() {
   /* ── 选中节点：前置提醒（本地判定，不用等 Agent）+ 并发拉讲解与 333 卡 ── */
   const selectNode = async (node: MapNode) => {
     const snapshot = state.value;
+    const epoch = ++viewEpoch;
     activeId.value = node.id;
     detail.value = null;
     card.value = null;
@@ -209,6 +227,8 @@ export function useStudy() {
         explainNode(node, snapshot.topic ?? '机器学习'),
         makeCard333(node.name),
       ]);
+      // 期间用户可能已经点了别的节点、或换了主题——那这份结果就是过期的
+      if (epoch !== viewEpoch) return;
       detail.value = nodeResult.payload;
       card.value = cardResult.payload;
       if (nodeResult.degraded || cardResult.degraded) {
@@ -269,12 +289,14 @@ export function useStudy() {
     const node = activeNode.value;
     if (!node || detail.value) return;
 
+    const epoch = ++viewEpoch;
     busy.node = true;
     try {
       const [nodeResult, cardResult] = await Promise.all([
         explainNode(node, state.value.topic ?? '机器学习'),
         makeCard333(node.name),
       ]);
+      if (epoch !== viewEpoch) return;
       detail.value = nodeResult.payload;
       card.value = cardResult.payload;
     } catch {

@@ -30,10 +30,19 @@ const uid = () =>
     : String(Math.random()).slice(2);
 
 /**
- * 初始快照只在模块加载时读一次：既避免每个 ref 都去 parse localStorage，
- * 也让「刷新后欢迎回来」这句话能基于**刷新前**的状态判断。
+ * ⚠️ 不要在模块级缓存初始快照。
+ *
+ * 之前这里是 `const INITIAL_STATE = loadState()`，只在模块加载时读一次。
+ * 但 SPA 内部导航**不会重新加载模块**——第二次进学习空间时 useStudy()
+ * 拿到的还是页面初次加载时的快照，那时可能根本没有进度，于是
+ * StudyView 挂载时判定「没有地图」直接弹回首页。
+ *
+ * 实测表现：首页点「继续上次学习」没有任何反应（路径停在 /）；
+ * 整页刷新则正常。因为整页刷新会重新执行模块、重新读盘，所以只靠刷新
+ * 做验证时会漏掉这个 bug。
+ *
+ * 现在改为每次实例化时读盘，见 createInitialState()。
  */
-const INITIAL_STATE = loadState();
 
 /**
  * 「当前看的是哪个节点」的版本号。
@@ -66,8 +75,10 @@ function pickRecommendedNode(state: PersistedState): MapNode | null {
 }
 
 export function useStudy() {
-  const state = ref<PersistedState>(INITIAL_STATE);
-  const activeId = ref<string | null>(INITIAL_STATE.lastNodeId);
+  // 每次实例化都重新读盘，而不是复用模块级快照
+  const initial = loadState();
+  const state = ref<PersistedState>(initial);
+  const activeId = ref<string | null>(initial.lastNodeId);
   const detail = ref<NodePayload | null>(null);
   const card = ref<Card333Payload | null>(null);
   /** 333 六步向导是否正占据中栏。 */
@@ -134,8 +145,8 @@ export function useStudy() {
 
   /** 刷新回来时的「欢迎回来，你上次学到 X」（§6.4）。只在本地没有对话记录时补一句。 */
   const greetOnReturn = () => {
-    if (INITIAL_STATE.chatHistory.length > 0) return;
-    const last = lastStudiedNode(INITIAL_STATE);
+    if (initial.chatHistory.length > 0) return;
+    const last = lastStudiedNode(initial);
     if (!last) return;
     append({ id: uid(), role: 'avatar', text: COPY.resume(last.name), ts: Date.now(), state: 'encouraging' });
   };
@@ -454,7 +465,20 @@ export function useStudy() {
   };
 
   /** 顶部「新建学习主题」：清空当前进度，回到落地页重新输入。 */
+  /**
+   * 顶部「新建学习主题」：清空当前进度，回到落地页重新输入。
+   *
+   * 清空动作要和 submitTopic 保持一致——之前这里漏了「作废在途请求」和
+   * 「清掉待恢复的向导快照」，两条路径又分叉了（这是第三次栽在同一个模式上）。
+   */
   const reset = () => {
+    ++viewEpoch;
+    detail.value = null;
+    card.value = null;
+    cardActive.value = false;
+    wizardResume.value = null;
+    resumedFrom.value = null;
+    activeId.value = null;
     state.value = {
       ...state.value,
       topic: null,
@@ -464,10 +488,6 @@ export function useStudy() {
       chatHistory: [],
       lastNodeId: null,
     };
-    activeId.value = null;
-    detail.value = null;
-    card.value = null;
-    cardActive.value = false;
   };
 
   return {

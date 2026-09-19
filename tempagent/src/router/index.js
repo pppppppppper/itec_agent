@@ -35,12 +35,12 @@ const router = createRouter({
       component: () => import('../views/StudyView.vue'),
     },
     {
-      path: '/about',
-      name: 'about',
-      // route level code-splitting
-      // this generates a separate chunk (About.[hash].js) for this route
-      // which is lazy-loaded when the route is visited.
-      component: () => import('../views/AboutView.vue'),
+      // catch-all：原来的路由表没有兜底，访问不存在的地址时 <RouterView>
+      // 什么都渲染不出来，整个页面是空白的（实测 body 文字量为 0）。
+      // 规划在 §2.3 / §10 / §14.7 反复强调「任何情况下不出现空白页」。
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      component: () => import('../views/NotFoundView.vue'),
     },
   ],
   scrollBehavior(_to, _from, savedPosition) {

@@ -138,12 +138,28 @@ export interface NodePayload extends Envelope {
 /** ── 模式 3：333 学习卡（§6.3） ─────────────────────────────── */
 export type QuestionType = 'causal' | 'conditional' | 'comparative';
 
+export interface QuizVariant {
+  question: string;
+  answer: string;
+  explanation: string;
+}
+
 export interface QuizQuestion {
   question: string;
   answer: string;
   explanation: string;
   /** §7.3：必须是因果/条件/对比三种，禁止「是什么」定义题。 */
   type: QuestionType;
+  /**
+   * 等价变体，供「换一题」用（§6.3.4 自主性）。
+   *
+   * 为什么放在契约里而不是让前端再发一次请求：换题发生在答题过程中，
+   * 再走一轮 Agent 要等十几秒、还可能失败，把学习节奏打断——而 Agent 本来
+   * 就在同一次调用里出题，多给一两个变体几乎不增加成本。前端本地瞬时切换。
+   *
+   * 可选：没有变体时「换一题」按钮不出现，不报错。
+   */
+  variants?: QuizVariant[];
 }
 
 export interface Card333Payload extends Envelope {

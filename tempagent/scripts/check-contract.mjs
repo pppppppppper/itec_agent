@@ -63,6 +63,21 @@ try {
   check('自测题 3 道', card.questions.length === 3);
   const types = new Set(card.questions.map((q) => q.type));
   check('题型覆盖 causal / conditional / comparative', types.size === 3, [...types].join('、'));
+  // §6.3.4 自主性：「换一题」靠 variants 实现本地切换。
+  // fixture 里没有变体的话按钮根本不会出现，等于这个功能没法验证。
+  check(
+    '每道题都有「换一题」的等价变体（§6.3.4）',
+    card.questions.every((q) => (q.variants?.length ?? 0) > 0),
+    card.questions.map((q) => q.variants?.length ?? 0).join('/'),
+  );
+  check(
+    '变体与原题的问法不同（不是随便复制一遍）',
+    card.questions.every((q) => q.variants.every((v) => v.question !== q.question)),
+  );
+  check(
+    '变体也带答案与解释（换了题照样能判、能讲）',
+    card.questions.every((q) => q.variants.every((v) => v.answer && v.explanation)),
+  );
 
   /**
    * §7.3 禁止的是「答案就是一段定义」的题，比如「梯度下降是什么？」。

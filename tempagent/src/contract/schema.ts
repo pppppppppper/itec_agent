@@ -92,6 +92,17 @@ export const card333PayloadSchema = z
         answer: str(600),
         explanation: str(800),
         type: questionTypeSchema,
+        // 「换一题」的等价变体：可选，最多 3 个，避免生成端无限膨胀
+        variants: z
+          .array(
+            z.object({
+              question: str(300),
+              answer: str(600),
+              explanation: str(800),
+            }),
+          )
+          .max(3)
+          .optional(),
       }),
     ).length(3),
   })

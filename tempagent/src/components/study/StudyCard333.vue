@@ -68,7 +68,45 @@ const quizReasoning = ref('');
 const verdicts = ref<Array<ProbePayload | null>>([null, null, null]);
 const skipped = ref(0);
 
-const currentQuestion = computed(() => props.card.questions[quizIndex.value]);
+/**
+ * 「换一题」：每道题可以带若干等价变体。第 0 个位置是原题，往后依次是变体。
+ * 切换完全在本地完成，不再跑一轮 Agent —— 换题发生在答题过程中，
+ * 让用户等十几秒会把学习节奏打断。
+ */
+const variantIndexes = ref<number[]>([0, 0, 0]);
+
+/** 当前题的选项总数（1 = 原题 + N 个变体）。 */
+function optionCount(i: number) {
+  return 1 + (props.card.questions[i]?.variants?.length ?? 0);
+}
+
+const currentQuestion = computed(() => {
+  const base = props.card.questions[quizIndex.value];
+  const vi = variantIndexes.value[quizIndex.value] ?? 0;
+  if (vi === 0 || !base.variants?.length) return base;
+  const v = base.variants[(vi - 1) % base.variants.length];
+  return { ...base, question: v.question, answer: v.answer, explanation: v.explanation };
+});
+
+/** 这道题还有别的问法可换吗。没有的话按钮就不该出现。 */
+const canChangeQuestion = computed(() => optionCount(quizIndex.value) > 1);
+const variantLabel = computed(() => {
+  const total = optionCount(quizIndex.value);
+  return total > 1 ? `${((variantIndexes.value[quizIndex.value] ?? 0) % total) + 1}/${total}` : '';
+});
+
+/** 换一题：切到下一个变体，并清空这一题的作答与判断。 */
+function changeQuestion() {
+  const i = quizIndex.value;
+  const total = optionCount(i);
+  if (total <= 1) return;
+  const next = [...variantIndexes.value];
+  next[i] = ((next[i] ?? 0) + 1) % total;
+  variantIndexes.value = next;
+  quizAnswer.value = '';
+  quizReasoning.value = '';
+  verdicts.value[i] = null;
+}
 const keyPointsHit = computed(() => marks.value.filter((m) => m === 'hit').length);
 const quizCorrect = computed(() => verdicts.value.filter((v) => v?.verdict === 'correct').length);
 /**
@@ -392,7 +430,14 @@ const closingRemark = computed(() => {
     <section v-else-if="phase === 'quiz'" class="block">
       <div class="quiz-head">
         <span class="block__tag">第 {{ quizIndex + 1 }} / {{ card.questions.length }} 题</span>
-        <span class="type-badge">{{ TYPE_LABEL[currentQuestion.type] }}</span>
+        <span class="quiz-head__right">
+          <!-- §6.3.4 自主性：不会这题可以换一道等价的，不用硬扛 -->
+          <button v-if="canChangeQuestion" type="button" class="change-question" @click="changeQuestion">
+            <span>换一题</span>
+            <span class="change-question__count">{{ variantLabel }}</span>
+          </button>
+          <span class="type-badge">{{ TYPE_LABEL[currentQuestion.type] }}</span>
+        </span>
       </div>
       <p class="prose prose--strong">{{ currentQuestion.question }}</p>
       <textarea
@@ -834,6 +879,37 @@ const closingRemark = computed(() => {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+}
+
+.quiz-head__right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.change-question {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--brand-700);
+  font-size: 12.5px;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.change-question:hover {
+  background: var(--brand-50);
+  border-color: var(--brand-400);
+}
+
+.change-question__count {
+  color: var(--ink-400);
+  font-variant-numeric: tabular-nums;
 }
 
 .type-badge {

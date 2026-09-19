@@ -17,14 +17,21 @@ const mockFlag = import.meta.env.VITE_MOCK as string | undefined;
  */
 export const isMock = mockFlag === '1' || !agentId;
 
-export const PROXY_BASE = `${window.location.origin}/openhex-proxy`;
+/**
+ * 代理地址。**必须是函数而不是模块级常量** —— 写成常量会在 import 时就碰
+ * `window`，于是任何非浏览器环境（Node 里跑契约自检、SSR、单元测试）
+ * 一 import 这个模块就 ReferenceError。
+ */
+export function proxyBase(): string {
+  return `${window.location.origin}/openhex-proxy`;
+}
 
 let cached: OpenhexClient | null = null;
 
 export function getClient(): OpenhexClient {
   if (!agentId) throw new Error('未配置 VITE_AGENT_ID，无法调用真实 Agent');
   cached ??= new OpenhexClient({
-    baseUrl: PROXY_BASE,
+    baseUrl: proxyBase(),
     apiKey: 'injected-by-proxy',
     agentId,
   });

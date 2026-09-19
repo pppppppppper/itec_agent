@@ -15,6 +15,7 @@ import AppIcon from '../components/AppIcon.vue';
 import ChatPanel from '../components/study/ChatPanel.vue';
 import MapTree from '../components/study/MapTree.vue';
 import NodeDetail from '../components/study/NodeDetail.vue';
+import StudyCard333 from '../components/study/StudyCard333.vue';
 import { useStudy } from '../composables/useStudy';
 import type { MapNode } from '../contract/types';
 
@@ -27,8 +28,9 @@ const {
   detail,
   card,
   busy,
-  started333,
+  cardActive,
   progress,
+  completedCount,
   isMock,
   warm,
   greetOnReturn,
@@ -37,6 +39,8 @@ const {
   ask,
   jumpTo,
   start333,
+  exitCard,
+  completeNode,
   reset,
 } = useStudy();
 
@@ -145,6 +149,15 @@ function newTopic() {
           <span style="width: 92%" /><span style="width: 78%" /><span style="width: 68%" />
         </div>
 
+        <!-- 333 六步向导会占据中栏；返回后回到节点详情 -->
+        <StudyCard333
+          v-if="cardActive && card"
+          :card="card"
+          :completed-count="completedCount"
+          @exit="exitCard"
+          @complete="completeNode"
+        />
+
         <NodeDetail
           v-else-if="activeNode"
           :node="activeNode"
@@ -158,10 +171,6 @@ function newTopic() {
         />
 
         <p v-else class="detail__pending">从左边选一个知识点开始。</p>
-
-        <p v-if="started333" class="banner">
-          已进入 333 学习法第一步：激活先验。六步认知加工链的完整交互在 H3 接入。
-        </p>
       </section>
 
       <section class="col col--chat">

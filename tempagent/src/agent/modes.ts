@@ -156,38 +156,124 @@ export interface ProbeArgs {
   answer: string;
   /** 标准答案，仅用于判断，不会回显给学生。 */
   reference?: string;
+  /** 第五步的 3 个关键点，用于判断复述「提到了哪几个、漏了哪个」。 */
+  keyPoints?: string[];
   /** 'recall' = 第四步复述；'quiz' = 第六步答题。 */
   stage: 'recall' | 'quiz';
+  /** quiz 专用：本次提交的是「你是怎么想到的」那段推理，而不是答案本身。 */
+  reasoning?: boolean;
+}
+
+/**
+ * 把文本切成可比较的最小单元：中文取二字组，英文/数字取单词。
+ * 只用于 mock 模式在没有模型的情况下给出一个像样的判断。
+ */
+function tokenize(text: string): Set<string> {
+  const compact = text
+    .toLowerCase()
+    .replace(/[\s\p{P}\p{S}]+/gu, '');
+  const tokens = new Set<string>();
+  for (const word of text.toLowerCase().match(/[a-z0-9]{2,}/g) ?? []) tokens.add(word);
+  for (let i = 0; i < compact.length - 1; i += 1) tokens.add(compact.slice(i, i + 2));
+  if (compact.length === 1) tokens.add(compact);
+  return tokens;
+}
+
+/** 参考答案里的单元有多大比例出现在学生答案里（0–1）。 */
+function coverage(answer: string, reference: string): number {
+  const ref = tokenize(reference);
+  if (ref.size === 0) return 0;
+  const ans = tokenize(answer);
+  let hit = 0;
+  for (const token of ref) if (ans.has(token)) hit += 1;
+  return hit / ref.size;
+}
+
+function readField(body: string, label: string): string {
+  const match = body.match(new RegExp(`${label}：([\\s\\S]*?)(?=\\n[^\\n]*：|$)`));
+  return match ? match[1].trim() : '';
 }
 
 export function probeAnswer(args: ProbeArgs, signal?: AbortSignal) {
+  const keyPoints = args.keyPoints ?? [];
+  const body = [
+    `概念：${args.concept}`,
+    `环节：${args.stage === 'recall' ? '复述' : '自测'}`,
+    args.reference ? `标准答案：${args.reference}` : '',
+    keyPoints.length ? `关键点：${keyPoints.join(' | ')}` : '',
+    `学生输入：${args.answer}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
   return runMode(
     'probe',
-    [
-      `概念：${args.concept}`,
-      `环节：${args.stage === 'recall' ? '复述' : '自测'}`,
-      args.reference ? `标准答案：${args.reference}` : '',
-      `学生输入：${args.answer}`,
-    ]
-      .filter(Boolean)
-      .join('\n'),
-    (): PayloadOf<'probe'> =>
-      args.stage === 'recall'
-        ? {
-            mode: 'probe',
-            feedback: '你抓住了核心意思。如果再把「沿着梯度的反方向」这一步补上，就更完整了。',
-            followup: '你是怎么想到这个答案的？',
-            verdict: 'partial',
-            encouragement: '能用自己的话讲出来，本身就说明你已经加工过一遍了。',
-          }
-        : {
-            mode: 'probe',
-            followup: '先别急着看答案——你是怎么想到这个答案的？',
-            verdict: 'unknown',
-          },
+    body,
+    (): PayloadOf<'probe'> => {
+      // ── 第六步：学生刚提交答案，先追问推理依据，不判对错（§6.3.3） ──
+      if (args.stage === 'quiz' && !args.reasoning) {
+        return {
+          mode: 'probe',
+          followup: '先别急着看答案——你是怎么想到这个答案的？说说你的思路就行。',
+          verdict: 'unknown',
+        };
+      }
+
+      // ── 第四步：复述。对照关键点看提到了哪几个、漏了哪个 ──
+      if (args.stage === 'recall') {
+        const covered = keyPoints.filter((point) => coverage(args.answer, point) >= 0.34);
+        const missed = keyPoints.filter((point) => !covered.includes(point));
+        const hit = covered.length;
+
+        const feedback =
+          hit === 0
+            ? '我还没在你的复述里找到关键要点。别担心——再看一眼上面的解释，然后试着把「它想让什么变小、靠什么调整」这两件事说出来。'
+            : `你提到了「${covered[0].slice(0, 18)}…」，这是核心。` +
+              (missed.length
+                ? `如果再把「${missed[0].slice(0, 18)}…」这一点补上，就更完整了。`
+                : '三个关键点你都覆盖到了，很完整。');
+
+        return {
+          mode: 'probe',
+          feedback,
+          followup: '你是怎么想到这个答案的？',
+          verdict: hit >= 2 ? 'correct' : hit === 1 ? 'partial' : 'wrong',
+          gap: missed.length ? `还没覆盖：${missed.map((p) => p.slice(0, 20)).join('；')}` : undefined,
+          encouragement:
+            hit === 0
+              ? '愿意先猜、再修正，这本身就是最有效的学习方式。'
+              : '能用自己的话讲出来，说明你已经真加工过一遍了——这比再读三遍管用。',
+        };
+      }
+
+      // ── 第六步第二轮：拿到推理依据后再给判断和认知断层定位 ──
+      const reference = args.reference ?? readField(body, '标准答案');
+      const ratio = reference ? coverage(args.answer, reference) : 0;
+      const verdict = ratio >= 0.45 ? 'correct' : ratio >= 0.2 ? 'partial' : 'wrong';
+
+      const summary: Record<typeof verdict, string> = {
+        correct: '方向对了，关键的那一步你也说到了。',
+        partial: '你抓到了一部分，但有一条关键的推理链条断了。',
+        wrong: '结论偏了，不过你的思路里有可用的部分——我们顺着它捋一下。',
+      };
+
+      return {
+        mode: 'probe',
+        verdict,
+        feedback: summary[verdict],
+        followup: '换个说法，你会怎么向同学解释这一步为什么成立？',
+        gap:
+          verdict === 'correct'
+            ? undefined
+            : `检查一下你是否漏掉了：${reference.slice(0, 40)}${reference.length > 40 ? '…' : ''}`,
+        encouragement:
+          verdict === 'correct' ? '这题你掌握住了，下一题会稍微难一点。' : '答错在这里很正常，这个点正是最容易混的地方。',
+      };
+    },
     signal,
   );
 }
+
 
 /** ── 模式 5：知识问答（§6.5，设计稿右栏） ───────────────────── */
 export function askQuestion(question: string, nodeContext: string | null, signal?: AbortSignal) {

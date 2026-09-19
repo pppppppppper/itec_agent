@@ -57,6 +57,8 @@ export function useStudy() {
   const detail = ref<NodePayload | null>(null);
   const card = ref<Card333Payload | null>(null);
   const started333 = ref(false);
+  /** 333 六步向导是否正占据中栏。 */
+  const cardActive = ref(false);
   const busy = reactive({ map: false, node: false, qa: false });
   const warmupStarted = ref(false);
 
@@ -66,6 +68,7 @@ export function useStudy() {
     () => state.value.map?.nodes.find((n) => n.id === activeId.value) ?? null,
   );
   const progress = computed(() => computeProgress(state.value));
+  const completedCount = computed(() => progress.value.mastered);
 
   const append = (message: ChatMessage) => {
     state.value.chatHistory.push(message);
@@ -123,6 +126,7 @@ export function useStudy() {
     detail.value = null;
     card.value = null;
     started333.value = false;
+    cardActive.value = false;
     activeId.value = null;
 
     state.value = {
@@ -178,6 +182,7 @@ export function useStudy() {
     detail.value = null;
     card.value = null;
     started333.value = false;
+    cardActive.value = false;
 
     const existing = snapshot.nodeRecords[node.id];
     state.value.nodeRecords[node.id] = {
@@ -254,8 +259,53 @@ export function useStudy() {
   };
 
   const start333 = () => {
+    if (!card.value) return;
     started333.value = true;
+    cardActive.value = true;
     append({ id: uid(), role: 'avatar', text: COPY.startStudy, ts: Date.now(), state: 'encouraging' });
+  };
+
+  const exitCard = () => {
+    cardActive.value = false;
+  };
+
+  /** 六步走完：标记已掌握，写完成时间，数字人给出下一步建议。 */
+  const completeNode = (summary?: { keyPointsHit: number; quizCorrect: number }) => {
+    const id = activeId.value;
+    if (!id) return;
+    const node = state.value.map?.nodes.find((n) => n.id === id);
+    if (!node) return;
+
+    state.value.nodeStatus[id] = 'mastered';
+    state.value.nodeRecords[id] = {
+      nodeId: id,
+      startedAt: state.value.nodeRecords[id]?.startedAt ?? Date.now(),
+      completedAt: Date.now(),
+      step: 6,
+    };
+    cardActive.value = false;
+    started333.value = false;
+
+    // 挑一个「前置已全部掌握」的未学节点作为下一步建议
+    const next = state.value.map?.nodes.find(
+      (n) =>
+        n.id !== id &&
+        state.value.nodeStatus[n.id] !== 'mastered' &&
+        n.prerequisites.every((p) => state.value.nodeStatus[p] === 'mastered'),
+    );
+
+    const praise =
+      summary && summary.quizCorrect >= 2
+        ? `「${node.name}」你已经掌握了。`
+        : `「${node.name}」这一步走完了，标记为已掌握。`;
+
+    append({
+      id: uid(),
+      role: 'avatar',
+      text: next ? `${praise}${COPY.mastered(next.name)}` : `${praise}这张地图上没有更多待学节点了。`,
+      ts: Date.now(),
+      state: 'celebrating',
+    });
   };
 
   /** 顶部「新建学习主题」：清空当前进度，回到落地页重新输入。 */
@@ -273,6 +323,7 @@ export function useStudy() {
     detail.value = null;
     card.value = null;
     started333.value = false;
+    cardActive.value = false;
   };
 
   return {
@@ -283,7 +334,9 @@ export function useStudy() {
     card,
     busy,
     started333,
+    cardActive,
     progress,
+    completedCount,
     isMock,
     warm,
     greetOnReturn,
@@ -292,6 +345,8 @@ export function useStudy() {
     ask,
     jumpTo,
     start333,
+    exitCard,
+    completeNode,
     reset,
   };
 }

@@ -160,8 +160,14 @@ export interface ProbeArgs {
   keyPoints?: string[];
   /** 'recall' = 第四步复述；'quiz' = 第六步答题。 */
   stage: 'recall' | 'quiz';
-  /** quiz 专用：本次提交的是「你是怎么想到的」那段推理，而不是答案本身。 */
-  reasoning?: boolean;
+  /**
+   * quiz 专用：学生对「你是怎么想到的」的回答。
+   *
+   * 给了它就说明这是追问后的第二轮，要出判断了。
+   * 注意**判断依据始终是 `answer`（学生答的题）**，推理只用来定位认知断层——
+   * 之前把推理当成 answer 去跟标准答案比对，导致三道题全对也判 0/3。
+   */
+  studentReasoning?: string;
 }
 
 /**
@@ -202,6 +208,7 @@ export function probeAnswer(args: ProbeArgs, signal?: AbortSignal) {
     args.reference ? `标准答案：${args.reference}` : '',
     keyPoints.length ? `关键点：${keyPoints.join(' | ')}` : '',
     `学生输入：${args.answer}`,
+    args.studentReasoning ? `学生的推理依据：${args.studentReasoning}` : '',
   ]
     .filter(Boolean)
     .join('\n');
@@ -211,7 +218,7 @@ export function probeAnswer(args: ProbeArgs, signal?: AbortSignal) {
     body,
     (): PayloadOf<'probe'> => {
       // ── 第六步：学生刚提交答案，先追问推理依据，不判对错（§6.3.3） ──
-      if (args.stage === 'quiz' && !args.reasoning) {
+      if (args.stage === 'quiz' && !args.studentReasoning) {
         return {
           mode: 'probe',
           followup: '先别急着看答案——你是怎么想到这个答案的？说说你的思路就行。',
@@ -248,26 +255,60 @@ export function probeAnswer(args: ProbeArgs, signal?: AbortSignal) {
 
       // ── 第六步第二轮：拿到推理依据后再给判断和认知断层定位 ──
       const reference = args.reference ?? readField(body, '标准答案');
+      // 判的是「答得对不对」，不是「说得漂不漂亮」
       const ratio = reference ? coverage(args.answer, reference) : 0;
-      const verdict = ratio >= 0.45 ? 'correct' : ratio >= 0.2 ? 'partial' : 'wrong';
+      let verdict: 'correct' | 'partial' | 'wrong' =
+        ratio >= 0.45 ? 'correct' : ratio >= 0.2 ? 'partial' : 'wrong';
 
-      const summary: Record<typeof verdict, string> = {
-        correct: '方向对了，关键的那一步你也说到了。',
-        partial: '你抓到了一部分，但有一条关键的推理链条断了。',
-        wrong: '结论偏了，不过你的思路里有可用的部分——我们顺着它捋一下。',
-      };
+      /**
+       * §6.3.3：答案对但推理有误，要指出来——结果对不代表真懂。
+       *
+       * 但这里的 coverage 只是**字面**重合度，不是语义判断。学生用自己的话正确
+       * 解释时措辞和标准答案差很远，重合度同样很低——阈值定高了会把「讲对了但
+       * 换了说法」误判成「推理有问题」，那比不判还糟。
+       * 所以只在**几乎没有任何共同词汇**时才判定推理站不住；真正的推理质量
+       * 由 Agent 侧的 prompt 负责（这一段的语义判断不该由前端 mock 假装能做）。
+       */
+      const reasoningRatio =
+        args.studentReasoning && reference ? coverage(args.studentReasoning, reference) : 1;
+      // 阈值取「完全没有共同词汇」。
+      // 实测：学生用自己的话正确解释 ≈ 0.074，敷衍蒙对 = 0.000。
+      // 0.08 这类中间值会把「讲对了但换了说法」误伤成「推理有问题」，
+      // 那比漏判更糟——错怪学生比放过一次严重得多。宁可漏，不可错怪。
+      const reasoningThin =
+        verdict === 'correct' && Boolean(args.studentReasoning) && reasoningRatio === 0;
+
+      if (reasoningThin) {
+        return {
+          mode: 'probe',
+          verdict: 'partial',
+          feedback: '结论是对的，但你说的理由和标准思路对不上——结果对不代表推理对，我们把这步对一下。',
+          followup: '你觉得你刚才的理由里，哪一步其实没想清楚？',
+          gap: `标准思路是：${reference}`,
+          encouragement: '能答对已经不错了；把理由也理顺，下次换个题目你才稳。',
+        };
+      }
+
+      if (verdict === 'correct') {
+        return {
+          mode: 'probe',
+          verdict: 'correct',
+          feedback: '思路和结论都对，这题你是真懂了。',
+          followup: '换个说法，你会怎么向同学解释这一步为什么成立？',
+          encouragement: '这题你掌握住了，下一题会稍微难一点。',
+        };
+      }
 
       return {
         mode: 'probe',
         verdict,
-        feedback: summary[verdict],
+        feedback:
+          verdict === 'partial'
+            ? '你抓到了一部分，但有一条关键的推理链条断了。'
+            : '结论偏了，不过你的思路里有可用的部分——我们顺着它捋一下。',
         followup: '换个说法，你会怎么向同学解释这一步为什么成立？',
-        gap:
-          verdict === 'correct'
-            ? undefined
-            : `检查一下你是否漏掉了：${reference.slice(0, 40)}${reference.length > 40 ? '…' : ''}`,
-        encouragement:
-          verdict === 'correct' ? '这题你掌握住了，下一题会稍微难一点。' : '答错在这里很正常，这个点正是最容易混的地方。',
+        gap: `检查一下你是否漏掉了：${reference.slice(0, 40)}${reference.length > 40 ? '…' : ''}`,
+        encouragement: '答错在这里很正常，这个点正是最容易混的地方。',
       };
     },
     signal,

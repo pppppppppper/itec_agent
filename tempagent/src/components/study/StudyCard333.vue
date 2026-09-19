@@ -161,7 +161,6 @@ async function submitQuizAnswer() {
       answer: quizAnswer.value,
       reference: currentQuestion.value.answer,
       stage: 'quiz',
-      reasoning: false,
     });
     verdicts.value[quizIndex.value] = result.payload;
     phase.value = 'quizProbe';
@@ -176,10 +175,11 @@ async function submitQuizReasoning() {
   try {
     const result = await probeAnswer({
       concept: props.card.concept,
-      answer: quizReasoning.value,
+      // 判分依据是学生答的那道题，不是他解释的思路
+      answer: quizAnswer.value,
+      studentReasoning: quizReasoning.value,
       reference: currentQuestion.value.answer,
       stage: 'quiz',
-      reasoning: true,
     });
     verdicts.value[quizIndex.value] = result.payload;
     phase.value = 'quizVerdict';

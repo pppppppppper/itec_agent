@@ -87,7 +87,6 @@ try {
     stage: 'quiz',
     reference: Q2.answer,
     answer: '会收敛不了。',
-    reasoning: false,
   });
   check('第一轮不判对错（verdict = unknown）', firstTurn.payload.verdict === 'unknown');
   check('第一轮先追问推理依据', /怎么想到|怎么想|思路/.test(firstTurn.payload.followup));
@@ -97,7 +96,7 @@ try {
     stage: 'quiz',
     reference: Q2.answer,
     answer: '参数更新步长过大，可能在最小值附近来回震荡，甚至发散，无法收敛。',
-    reasoning: true,
+    studentReasoning: '步长太大会跨过最低点，在两边来回跳，越跳越远。',
   });
   check('第二轮：答对 → correct', correctQuiz.payload.verdict === 'correct', correctQuiz.payload.verdict);
 
@@ -106,11 +105,30 @@ try {
     stage: 'quiz',
     reference: Q2.answer,
     answer: '会算得更快，很快就能找到最优解。',
-    reasoning: true,
+    studentReasoning: '学习率大就是步子大，步子大当然走得快。',
   });
   check('第二轮：答错 → 不是 correct', wrongQuiz.payload.verdict !== 'correct', wrongQuiz.payload.verdict);
   check('答错时给出认知断层定位', Boolean(wrongQuiz.payload.gap));
   check('答错时仍给情感确认（§6.3.4）', Boolean(wrongQuiz.payload.encouragement));
+
+  // §6.3.3：答案对但推理站不住，不能判成「完全掌握」
+  const rightAnswerBadReasoning = await probeAnswer({
+    concept: '梯度下降',
+    stage: 'quiz',
+    reference: Q2.answer,
+    answer: '参数更新步长过大，可能在最小值附近来回震荡，甚至发散，无法收敛。',
+    studentReasoning: '我随便猜的，感觉应该会出问题吧。',
+  });
+  check(
+    '答案对但推理站不住 → 不判 correct（§6.3.3）',
+    rightAnswerBadReasoning.payload.verdict !== 'correct',
+    rightAnswerBadReasoning.payload.verdict,
+  );
+  check(
+    '并明确指出「结论对但理由对不上」',
+    /推理|理由/.test(rightAnswerBadReasoning.payload.feedback ?? ''),
+    rightAnswerBadReasoning.payload.feedback,
+  );
 } finally {
   await rm(dir, { recursive: true, force: true });
 }

@@ -310,26 +310,33 @@ export function useStudy() {
     };
     cardActive.value = false;
 
-    // 挑一个「前置已全部掌握」的未学节点作为下一步建议
-    const next = state.value.map?.nodes.find(
-      (n) =>
-        n.id !== id &&
-        state.value.nodeStatus[n.id] !== 'mastered' &&
-        n.prerequisites.every((p) => state.value.nodeStatus[p] === 'mastered'),
-    );
+    // 挑下一步建议。
+    // 必须先看刚学完这个节点的**后继**（§6.2 的「后继知识」），而不是全图扫第一个
+    // 前置已满足的节点——地图是按分组排列的，全图扫描会挑到「数学基础」里的节点，
+    // 于是刚学完梯度下降却被建议回头去学它的前置，方向是反的。
+    const ready = (n: MapNode) =>
+      n.id !== id &&
+      state.value.nodeStatus[n.id] !== 'mastered' &&
+      n.prerequisites.every((p) => state.value.nodeStatus[p] === 'mastered');
+
+    const next =
+      node.successor
+        .map((sid) => state.value.map?.nodes.find((n) => n.id === sid))
+        .filter((n): n is MapNode => Boolean(n))
+        .find(ready) ?? state.value.map?.nodes.find(ready);
 
     const praise =
       summary && summary.quizCorrect >= 2
         ? `「${node.name}」你已经掌握了。`
-        : `「${node.name}」这一步走完了，标记为已掌握。`;
+        : `「${node.name}」这一步走完了，我把它标记为已掌握。`;
 
-    append({
-      id: uid(),
-      role: 'avatar',
-      text: next ? `${praise}${COPY.mastered(next.name)}` : `${praise}这张地图上没有更多待学节点了。`,
-      ts: Date.now(),
-      state: 'celebrating',
-    });
+    const tail = next
+      ? `接下来想学它的后继「${next.name}」吗？`
+      : node.successor.length === 0
+        ? '这是这条路径的终点，你可以回地图上挑别的分支。'
+        : '这条路径上暂时没有可继续的节点了。';
+
+    append({ id: uid(), role: 'avatar', text: `${praise}${tail}`, ts: Date.now(), state: 'celebrating' });
   };
 
   /** 顶部「新建学习主题」：清空当前进度，回到落地页重新输入。 */

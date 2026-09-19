@@ -15,7 +15,6 @@ export const COPY = {
   emptyTopic: '先随便说一个你想学的主题就行，比如「机器学习」。',
   startStudy: '我们先花 3 分钟理解它，然后我会问你 3 个问题。',
   probeOnWrong: '别急，先告诉我你是怎么想到这个答案的？',
-  mastered: (next: string) => `你已经掌握了这个节点，接下来想学「${next}」吗？`,
   /** §6.2 数字人在节点详情旁的引导：需要先掌握 X。 */
   needPrereq: (names: string[]) =>
     `这个节点需要先掌握「${names.join('」「')}」，你还没学。要我带你过去吗？`,

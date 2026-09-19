@@ -98,6 +98,21 @@ function onKeydown(event: KeyboardEvent) {
                 </button>
               </div>
 
+              <!-- §6.5：回答结构里的「关联节点」。契约里一直有 related_nodes，
+                   但 UI 只渲染了 related_concepts，这个字段被漏掉了。 -->
+              <div v-if="m.qa?.related_nodes?.length" class="chips chips--tight">
+                <span class="chips__label">关联节点</span>
+                <button
+                  v-for="n in m.qa.related_nodes"
+                  :key="n"
+                  type="button"
+                  class="chip chip--node"
+                  @click="emit('jump', n)"
+                >
+                  {{ n }}
+                </button>
+              </div>
+
               <p v-if="m.qa?.next_step" class="bubble__next">{{ m.qa.next_step }}</p>
               <p v-if="m.qa?.counter_question" class="bubble__counter">
                 <AppIcon name="info-circle" :size="13" class="bubble__counter-icon" />
@@ -321,6 +336,12 @@ function onKeydown(event: KeyboardEvent) {
 
 .chip:hover {
   border-color: var(--brand-400);
+}
+
+/* 关联节点是「可以跳过去的知识点」，和「关联概念」在语义上不同，给一点区分 */
+.chip--node {
+  background: var(--surface);
+  border-color: var(--brand-200);
 }
 
 .chat__input {

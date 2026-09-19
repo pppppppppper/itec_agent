@@ -5,7 +5,7 @@
  * H1 交付范围：三个 Tab 的骨架 + 通俗理解（含损失曲线）+ 333 卡片的「3 个关键点」
  * 与入口按钮。六步认知加工链的完整交互属于 H3。
  */
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import AppIcon from '../AppIcon.vue';
 import LossCurve from './LossCurve.vue';
 import type { Card333Payload, MapNode, MapPayload, NodePayload, NodeStatus } from '../../contract/types';
@@ -54,6 +54,10 @@ watch(
 
 const related = () => props.detail?.related ?? props.node.related;
 
+/** 难度 / 时长优先取 node 模式的返回值（更贴合该节点的实际讲解），退回地图字段。 */
+const shownDifficulty = computed(() => props.detail?.difficulty ?? props.node.difficulty);
+const shownTime = computed(() => props.detail?.estimated_time ?? props.node.estimated_time);
+
 /**
  * relations 数组里存的是节点 id（如 decision_tree）。直接渲染会漏出英文 id，
  * 而用户只认识「决策树」。这里统一解析成 name；解析不到就原样返回，
@@ -77,6 +81,15 @@ function nameOf(key: string): string {
       <h1 class="detail__title">{{ node.name }}</h1>
       <span class="badge" :class="`is-${status}`">{{ STATUS_TEXT[status] }}</span>
     </header>
+
+    <!-- §6.2 第一层「知识定位」的三要素：难度 + 学习时间。
+         这两个字段契约里一直有、地图树上也在用，但节点详情里此前完全没渲染，
+         DIFFICULTY_LABEL 定义了却一次都没被引用过。 -->
+    <p class="detail__meta">
+      <span>难度 {{ shownDifficulty }} · {{ DIFFICULTY_LABEL[shownDifficulty] }}</span>
+      <span class="detail__meta-dot" aria-hidden="true">·</span>
+      <span>预计 {{ shownTime }} 分钟</span>
+    </p>
 
     <div class="tabs" role="tablist">
       <button
@@ -186,6 +199,19 @@ function nameOf(key: string): string {
 
 .detail__crumb-current {
   color: var(--ink-600);
+}
+
+.detail__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -8px 0 14px;
+  color: var(--ink-400);
+  font-size: 12.5px;
+}
+
+.detail__meta-dot {
+  color: var(--ink-300);
 }
 
 .detail__head {

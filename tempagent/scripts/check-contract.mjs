@@ -78,6 +78,39 @@ try {
     offenders.map((q) => q.question).join('、'),
   );
 
+  // ── 契约字段覆盖度：契约里定义的每个字段，UI 至少要被引用到 ──
+  //    这一条就是靠它发现「难度/学习时间没渲染」「关联节点没渲染」的。
+  console.log('\n契约字段覆盖度');
+  {
+    const { readFileSync, readdirSync } = await import('node:fs');
+    const { join } = await import('node:path');
+    const types = readFileSync('src/contract/types.ts', 'utf8');
+
+    const collect = (dir, acc = '') =>
+      readdirSync(dir, { withFileTypes: true }).reduce((a, e) => {
+        const full = join(dir, e.name);
+        if (e.isDirectory()) return collect(full, a);
+        if (/\.(vue|ts)$/.test(e.name)) return a + readFileSync(full, 'utf8');
+        return a;
+      }, acc);
+    const ui = collect('src/components') + collect('src/composables') + readFileSync('src/copy.ts', 'utf8');
+
+    // 这些字段不需要 UI 直接引用：mode/say 是信封，kind 是类型判别式
+    const IGNORE = new Set(['mode', 'say', 'kind']);
+    const gaps = [];
+    let iface = null;
+    for (const line of types.split('\n')) {
+      const m = line.match(/^export interface (\w+)/);
+      if (m) { iface = m[1]; continue; }
+      if (iface && line.startsWith('}')) { iface = null; continue; }
+      const f = iface && line.match(/^\s{2}(\w+)\??:/);
+      if (f && !IGNORE.has(f[1]) && !new RegExp(`\\b${f[1]}\\b`).test(ui)) {
+        gaps.push(`${iface}.${f[1]}`);
+      }
+    }
+    check('契约里定义的字段 UI 都有渲染', gaps.length === 0, gaps.join('、'));
+  }
+
   console.log('\n节点讲解 fixture');
   check('带损失曲线（设计稿中栏配图）', FIXTURE_NODE_GRADIENT_DESCENT.visual?.kind === 'loss_curve');
   check('有考试复习 Tab 内容', Boolean(FIXTURE_NODE_GRADIENT_DESCENT.exam_focus));
@@ -86,6 +119,12 @@ try {
   console.log('\n知识问答 fixture');
   check('预置 2 条问答（设计稿右栏）', FIXTURE_QA.length === 2);
   check('「学习率太大」那条带震荡配图', FIXTURE_QA[0].visual?.oscillating === true);
+  // §6.5 回答结构里的「关联节点」。这个字段曾经在契约里有、UI 却没渲染，
+  // fixture 里也没有，于是谁都没发现——加断言把它钉住。
+  check('覆盖「关联节点」（§6.5）', FIXTURE_QA.every((q) => (q.related_nodes?.length ?? 0) > 0));
+  check('覆盖「关联概念」', FIXTURE_QA.every((q) => (q.related_concepts?.length ?? 0) > 0));
+  check('每条问答都有「推荐下一步」', FIXTURE_QA.every((q) => Boolean(q.next_step)));
+  check('每条问答都有「反问」', FIXTURE_QA.every((q) => Boolean(q.counter_question)));
 } finally {
   await rm(dir, { recursive: true, force: true });
 }

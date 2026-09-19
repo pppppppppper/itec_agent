@@ -22,6 +22,11 @@ const router = createRouter({
       name: 'profile',
       // 个人中心暂未实现，先保留路由占位，避免点击头像后出现空白页
       component: () => import('../views/ProfileView.vue'),
+      // 与 /auth 的守卫对称：未登录不该停在个人中心。
+      // 补这个之前，在 /profile 点「退出」会留在原地，而页面文案里的
+      // `user?.account` 已经变空，渲染成「这里之后会展示 的学习地图…」。
+      beforeEnter: () =>
+        isAuthenticated() ? true : { name: 'auth', query: { redirect: '/profile' } },
     },
     {
       path: '/study',

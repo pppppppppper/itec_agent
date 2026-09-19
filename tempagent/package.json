@@ -9,13 +9,14 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "start": "node server/index.mjs",
-    "check": "npm run typecheck && npm run check:contract && npm run check:333",
+    "check": "npm run typecheck && npm run check:contract && npm run check:333 && npm run check:fallback",
     "check:contract": "node scripts/check-contract.mjs",
     "check:333": "node scripts/check-333.mjs",
     "lint": "run-s \"lint:*\"",
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
-    "format": "prettier --write --experimental-cli src/"
+    "format": "prettier --write --experimental-cli src/",
+    "check:fallback": "node scripts/check-fallback.mjs"
   },
   "dependencies": {
     "@openhex-ai/agent-sdk": "^0.5.1",

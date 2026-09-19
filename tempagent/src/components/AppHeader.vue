@@ -16,6 +16,18 @@ const route = useRoute()
 const router = useRouter()
 const { user, logout } = useAuth()
 
+/**
+ * 退出登录后要主动离开当前页。
+ *
+ * 路由守卫只在「导航时」检查，而点退出只是清了登录状态、并没有发生导航——
+ * 所以在 /profile 点退出会留在原地，页面文案里的 user?.account 已经变空，
+ * 渲染成「这里之后会展示 的学习地图…」。退出后回首页是标准做法，顺带堵住这个洞。
+ */
+function handleLogout() {
+  logout()
+  if (route.name !== 'home') router.replace('/')
+}
+
 const isHome = computed(() => route.name === 'home')
 const isAuthPage = computed(() => route.name === 'auth')
 const avatarText = computed(() => (user.value?.name || user.value?.account || '学').slice(0, 1))
@@ -91,7 +103,7 @@ function resumeStudy() {
             <span class="user-chip__avatar">{{ avatarText }}</span>
             <span class="user-chip__email">{{ user.account }}</span>
           </RouterLink>
-          <button type="button" class="logout-button" @click="logout">退出</button>
+          <button type="button" class="logout-button" @click="handleLogout">退出</button>
         </template>
       </div>
     </div>

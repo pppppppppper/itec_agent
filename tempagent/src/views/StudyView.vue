@@ -41,6 +41,9 @@ const {
   jumpTo,
   start333,
   cardStartPhase,
+  wizardResume,
+  activeResumeStep,
+  saveWizardProgress,
   restoreActiveNode,
   exitCard,
   completeNode,
@@ -141,8 +144,10 @@ function newTopic() {
           :card="card"
           :completed-count="completedCount"
           :start-phase="cardStartPhase"
+          :resume="wizardResume"
           @exit="exitCard"
           @complete="completeNode"
+          @progress="saveWizardProgress"
         />
 
         <NodeDetail
@@ -150,6 +155,7 @@ function newTopic() {
           :node="activeNode"
           :map="state.map"
           :statuses="state.nodeStatus"
+          :resume-step="activeResumeStep"
           :detail="detail"
           :card="card"
           :status="state.nodeStatus[activeNode.id] ?? activeNode.status"

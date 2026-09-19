@@ -20,6 +20,7 @@ import {
   unmetPrerequisites,
   type ChatMessage,
   type PersistedState,
+  type StudyWizardSnapshot,
 } from '../state/store';
 import { COPY } from '../copy';
 
@@ -79,6 +80,18 @@ export function useStudy() {
   const activeNode = computed(
     () => state.value.map?.nodes.find((n) => n.id === activeId.value) ?? null,
   );
+
+  /**
+   * 当前节点有没有没走完的 333 进度。有的话入口要显示「继续」而不是「开始」——
+   * 否则用户根本不知道自己的进度还在，会以为又得从第 1 步重来。
+   */
+  const activeResumeStep = computed(() => {
+    const id = activeId.value;
+    if (!id) return null;
+    const record = state.value.nodeRecords[id];
+    if (!record || record.completedAt) return null;
+    return record.wizard?.step ?? null;
+  });
   const progress = computed(() => computeProgress(state.value));
   const completedCount = computed(() => progress.value.mastered);
 
@@ -308,12 +321,50 @@ export function useStudy() {
 
   /** 333 向导的起点：默认走完整六步，也可直接从自测开始（§6.2 第四层的「生成自测题」）。 */
   const cardStartPhase = ref<'activation' | 'quiz'>('activation');
+  /** 待恢复的向导进度（§6.4「用于刷新后续学」）。没有就是从头开始。 */
+  const wizardResume = ref<StudyWizardSnapshot | null>(null);
+
+  /** 说给用户听的一句话，避免他不知道为什么一进来就在第 4 步。 */
+  const resumedFrom = ref<number | null>(null);
 
   const start333 = (phase: 'activation' | 'quiz' = 'activation') => {
     if (!card.value) return;
-    cardStartPhase.value = phase;
+    const id = activeId.value;
+    const saved = id ? state.value.nodeRecords[id]?.wizard : undefined;
+
+    // 有未走完的进度就接着学，而不是让用户从第 1 步重来
+    if (saved && !state.value.nodeRecords[id!]?.completedAt) {
+      wizardResume.value = saved;
+      resumedFrom.value = saved.step ?? null;
+    } else {
+      wizardResume.value = null;
+      resumedFrom.value = null;
+      cardStartPhase.value = phase;
+    }
     cardActive.value = true;
     append({ id: uid(), role: 'avatar', text: COPY.startStudy, ts: Date.now(), state: 'encouraging' });
+  };
+
+  /**
+   * 向导每推进一步就存一次；走完时由 completeNode 清掉。
+   *
+   * 注意这里**不能假设 nodeRecords[id] 已存在**：生成地图后自动选中的节点
+   * 从没走过 selectNode，那条记录是空的。之前直接 return，导致快照根本没落盘
+   * （实测走到第 4 步刷新，存档里 step 仍是 null）。
+   */
+  const saveWizardProgress = (snapshot: StudyWizardSnapshot | null) => {
+    const id = activeId.value;
+    if (!id) return;
+    const record = state.value.nodeRecords[id] ?? { nodeId: id, startedAt: Date.now() };
+
+    if (snapshot === null) {
+      delete record.wizard;
+    } else {
+      record.wizard = snapshot;
+      record.step = snapshot.step;
+    }
+    // 新对象要重新赋值才会被 Vue 追踪
+    state.value.nodeRecords[id] = record;
   };
 
   const exitCard = () => {
@@ -333,7 +384,11 @@ export function useStudy() {
       startedAt: state.value.nodeRecords[id]?.startedAt ?? Date.now(),
       completedAt: Date.now(),
       step: 6,
+      // 走完了就没有「未完成的进度」可恢复了
+      wizard: undefined,
     };
+    wizardResume.value = null;
+    resumedFrom.value = null;
     cardActive.value = false;
 
     // 挑下一步建议。
@@ -386,6 +441,7 @@ export function useStudy() {
     state,
     activeId,
     activeNode,
+    activeResumeStep,
     detail,
     card,
     busy,
@@ -401,6 +457,9 @@ export function useStudy() {
     jumpTo,
     start333,
     cardStartPhase,
+    wizardResume,
+    resumedFrom,
+    saveWizardProgress,
     restoreActiveNode,
     exitCard,
     completeNode,

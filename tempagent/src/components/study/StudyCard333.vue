@@ -16,11 +16,12 @@
  * 苏格拉底式追问（§6.3.3）在第 6 步里：学生提交答案后**不直接判对错**，
  * 先问「你是怎么想到的」，拿到推理路径后再定位认知断层。
  */
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import AppIcon from '../AppIcon.vue';
 import StudyAvatar from './StudyAvatar.vue';
 import { probeAnswer } from '../../agent/modes';
 import type { Card333Payload, ProbePayload } from '../../contract/types';
+import type { StudyWizardSnapshot } from '../../state/store';
 
 const props = defineProps<{
   card: Card333Payload;
@@ -28,9 +29,16 @@ const props = defineProps<{
   completedCount: number;
   /** 起点：默认从第一步「激活先验」开始；'quiz' 用于「我直接测一下」。 */
   startPhase?: 'activation' | 'quiz';
+  /** 上次没走完的进度，给了就接着学（§6.4「用于刷新后续学」）。 */
+  resume?: StudyWizardSnapshot | null;
 }>();
 
-const emit = defineEmits<{ complete: [summary: Card333Summary]; exit: [] }>();
+const emit = defineEmits<{
+  complete: [summary: Card333Summary];
+  exit: [];
+  /** 每推进一步就报一次，父组件负责落盘。 */
+  progress: [snapshot: StudyWizardSnapshot];
+}>();
 
 export interface Card333Summary {
   concept: string;
@@ -53,20 +61,21 @@ type Phase =
   | 'quizVerdict'
   | 'done';
 
-const phase = ref<Phase>(props.startPhase === 'quiz' ? 'quiz' : 'activation');
+const r = props.resume;
+const phase = ref<Phase>((r?.phase as Phase) ?? (props.startPhase === 'quiz' ? 'quiz' : 'activation'));
 const busy = ref(false);
 const startedAt = ref(Date.now());
 
-const activation = ref('');
-const recallText = ref('');
-const recallResult = ref<ProbePayload | null>(null);
-const marks = ref<Array<'hit' | 'miss' | null>>([null, null, null]);
+const activation = ref(r?.activation ?? '');
+const recallText = ref(r?.recallText ?? '');
+const recallResult = ref<ProbePayload | null>(r?.recallResult ?? null);
+const marks = ref<Array<'hit' | 'miss' | null>>(r?.marks ?? [null, null, null]);
 
-const quizIndex = ref(0);
+const quizIndex = ref(r?.quizIndex ?? 0);
 const quizAnswer = ref('');
 const quizReasoning = ref('');
-const verdicts = ref<Array<ProbePayload | null>>([null, null, null]);
-const skipped = ref(0);
+const verdicts = ref<Array<ProbePayload | null>>(r?.verdicts ?? [null, null, null]);
+const skipped = ref(r?.skipped ?? 0);
 
 /**
  * 「换一题」：每道题可以带若干等价变体。第 0 个位置是原题，往后依次是变体。
@@ -259,6 +268,25 @@ function skipQuestion() {
   }
 }
 
+/**
+ * 每推进一步就上报一次进度。
+ * 只监听 phase / quizIndex —— 输入框里没提交的草稿不值得每敲一个字就写盘。
+ */
+watch([phase, quizIndex], () => {
+  emit('progress', {
+    phase: phase.value,
+    step: stepNo.value,
+    activation: activation.value,
+    recallText: recallText.value,
+    recallResult: recallResult.value,
+    marks: [...marks.value],
+    quizIndex: quizIndex.value,
+    quizAnswers: verdicts.value.map((_, i) => (i === quizIndex.value ? quizAnswer.value : '')),
+    verdicts: [...verdicts.value],
+    skipped: skipped.value,
+  });
+}, { immediate: true });
+
 function finish() {
   emit('complete', {
     concept: props.card.concept,
@@ -312,6 +340,12 @@ const closingRemark = computed(() => {
     <div class="wizard__title-row">
       <h2 class="wizard__title">{{ card.concept }} · 333 学习法</h2>
     </div>
+
+    <!-- 恢复进度时要说一句，否则用户会奇怪为什么一进来就在第 4 步 -->
+    <p v-if="resume" class="resumed">
+      <AppIcon name="check-circle" :size="14" />
+      已恢复到上次的进度（第 {{ resume.step }} 步）——继续吧。
+    </p>
 
     <ol class="pills">
       <li v-for="(label, i) in PILLS" :key="label" class="pill" :class="{ 'is-active': i === pillIndex }">
@@ -619,6 +653,19 @@ const closingRemark = computed(() => {
   font-size: 19px;
   font-weight: 700;
   color: var(--ink-900);
+}
+
+.resumed {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background: #f3fbf6;
+  border: 1px solid #bbf7d0;
+  color: var(--success-600);
+  font-size: 12.5px;
 }
 
 .pills {

@@ -5,7 +5,7 @@
  * 匿名同步（跨设备续学）在 §11.2「有时间再做」里，这里只把 deviceId 先发出来，
  * 后面要接 KV 时不用再改数据结构。
  */
-import type { MapPayload, NodeStatus, QaPayload } from '../contract/types';
+import type { MapPayload, NodeStatus, ProbePayload, QaPayload } from '../contract/types';
 
 const STORAGE_KEY = 'zhitu-partner/v1';
 const DEVICE_KEY = 'zhitu-partner/deviceId';
@@ -28,12 +28,37 @@ export interface ChatMessage {
   qa?: QaPayload;
 }
 
+/**
+ * 333 六步向导的进度快照。
+ *
+ * §6.4 要求把「333 六步走到第几步」存下来「用于刷新后续学」，§14.9 也要求
+ * 「刷新后状态不丢失」。只存一个步骤号是不够的——第 5 步的关键点自评是从
+ * 第 4 步的复述判定推出来的，第 6 步要带着已答的题继续，所以整个向导状态
+ * 一起存，回来才能真的接着学而不是重头再来。
+ */
+export interface StudyWizardSnapshot {
+  phase: string;
+  /** 第几步（1–6）—— §6.4 点名的那个字段。 */
+  step: number;
+  activation: string;
+  recallText: string;
+  recallResult: ProbePayload | null;
+  marks: Array<'hit' | 'miss' | null>;
+  quizIndex: number;
+  /** 已提交的答案，下标对应题目。 */
+  quizAnswers: string[];
+  verdicts: Array<ProbePayload | null>;
+  skipped: number;
+}
+
 export interface NodeRecord {
   nodeId: string;
   startedAt: number;
   completedAt?: number;
   /** 333 六步走到第几步（1–6），用于刷新后续学。 */
   step?: number;
+  /** 未走完的 333 向导状态；走完或没开始时为 undefined。 */
+  wizard?: StudyWizardSnapshot;
 }
 
 /** 与 §6.4 列出的 key 完全对应。 */

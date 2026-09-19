@@ -16,6 +16,8 @@ const props = defineProps<{
   map: MapPayload | null;
   /** 用于给未掌握的前置标「需要先学」。 */
   statuses?: Record<string, NodeStatus>;
+  /** 没走完的 333 进度在第几步；有值说明可以继续。 */
+  resumeStep?: number | null;
   detail: NodePayload | null;
   card: Card333Payload | null;
   status: NodeStatus;
@@ -180,9 +182,9 @@ function nameOf(key: string): string {
         <section class="layer">
           <h3 class="layer__title">学习入口</h3>
           <div class="entries">
-            <button type="button" class="entry" @click="emit('start333', 'activation')">
+            <button type="button" class="entry" :class="{ 'entry--resume': resumeStep }" @click="emit('start333', 'activation')">
               <AppIcon name="study-board" :size="16" />
-              <span>开始 333 学习法</span>
+              <span>{{ resumeStep ? `继续 333 学习法（第 ${resumeStep} 步）` : '开始 333 学习法' }}</span>
             </button>
             <button type="button" class="entry" @click="emit('start333', 'quiz')">
               <AppIcon name="check-circle" :size="16" />
@@ -505,6 +507,13 @@ function nameOf(key: string): string {
     background-color 0.15s ease,
     border-color 0.15s ease,
     transform 0.15s ease;
+}
+
+.entry--resume {
+  background: #f3fbf6;
+  border-color: #bbf7d0;
+  color: var(--success-600);
+  font-weight: 600;
 }
 
 .entry:hover {

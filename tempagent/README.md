@@ -79,6 +79,7 @@ npm run dev          # http://localhost:5173
 | `npm run check:contract` | fixtures 是否符合 Schema、是否对齐设计稿、**契约字段是否都被渲染** |
 | `npm run check:333` | 333 六步的判定逻辑（用 §6.3.5 的真实数据跑） |
 | `npm run check:fallback` | 兜底链路：失败重试 → 切静态兜底 → 不白屏（§7.2 / §14.7） |
+| `npm run check:acceptance` | **§14 九项交付标准的浏览器验收**（需要 Chrome，会自己起服务和浏览器） |
 | `npm run start` | 本地起生产服务器（先 `build`） |
 
 ### 切到真实 Agent
@@ -220,6 +221,11 @@ ZHITU_KEY=/path/to/deploy_key ./scripts/deploy.sh
 移动端在 320 / 375 / 390 / 414 / 768 / 844(横) / 1024 / 1280 共 8 档实测横向溢出为 0。
 
 ### 演示前必做
+
+**先跑一次 `npm run check:acceptance`** —— 它用真实浏览器把 §14 的九项交付标准
+逐条验一遍（首页数字人、地图生成、节点详情、333 六步、知识问答、刷新不丢状态、
+未知地址不空白、五档尺寸无横向溢出），失败会列出具体哪一条没过。
+
 
 **Agent 的第一条消息要拉起运行环境，可能十几秒。** 演示时输入「机器学习」的那一刻就是第一次对话，评委面前卡十几秒会直接扣分。所以：
 

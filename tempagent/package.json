@@ -16,7 +16,8 @@
     "lint:oxlint": "oxlint . --fix",
     "lint:eslint": "eslint . --fix --cache",
     "format": "prettier --write --experimental-cli src/",
-    "check:fallback": "node scripts/check-fallback.mjs"
+    "check:fallback": "node scripts/check-fallback.mjs",
+    "check:acceptance": "node scripts/check-acceptance.mjs"
   },
   "dependencies": {
     "@openhex-ai/agent-sdk": "^0.5.1",
